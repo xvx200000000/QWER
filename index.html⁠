@@ -65,7 +65,7 @@
     color: #7dd3fc;
   }
   .menu-left {
-    display: fl
+    display: flex;
     align-items: center;
     gap: 7px;
   }
