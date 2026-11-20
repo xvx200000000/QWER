@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>多Agent实时交易监控系统</title>
+<title>多Agent实时交易监控系统 - 模式选择</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -15,7 +15,7 @@
     overflow: hidden;
   }
 
-  /* 左侧控制面板：左右各留约1个字空间 */
+  /* 左侧控制面板 */
   .sidebar {
     background-color: #0f1926;
     border-right: 1px solid #1e2d3d;
@@ -63,9 +63,10 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    min-width: 0;
   }
 
-  /* 顶部栏：战歌 + 上下对齐的状态标签 */
+  /* 顶部栏 */
   .topbar {
     height: 68px;
     background-color: #0f1926;
@@ -73,18 +74,20 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 20px;
+    padding: 0 18px;
+    flex-shrink: 0;
   }
   .music-player {
     display: flex;
     align-items: center;
     gap: 12px;
     background-color: #142233;
-    padding: 8px 16px;
+    padding: 8px 14px;
     border-radius: 8px;
     border: 1px solid #1e324a;
     flex: 1;
-    max-width: 600px;
+    max-width: 560px;
+    min-width: 0;
   }
   .play-btn {
     width: 28px;
@@ -94,19 +97,19 @@
     background: transparent;
     color: #38bdf8;
     cursor: pointer;
+    flex-shrink: 0;
   }
   .wave-bar {
     flex: 1;
     height: 4px;
     background: #1e324a;
     border-radius: 2px;
-    position: relative;
+    overflow: hidden;
   }
   .wave-progress {
     width: 35%;
     height: 100%;
     background: #38bdf8;
-    border-radius: 2px;
   }
 
   /* 状态标签：上下排布且大小完全一致 */
@@ -114,7 +117,8 @@
     display: flex;
     flex-direction: column;
     gap: 5px;
-    margin-left: 20px;
+    margin-left: 14px;
+    flex-shrink: 0;
   }
   .status-badge {
     width: 104px;
@@ -128,6 +132,7 @@
     background-color: rgba(16, 185, 129, 0.12);
     border: 1px solid #10b981;
     color: #34d399;
+    white-space: nowrap;
   }
   .dot {
     width: 6px;
@@ -138,46 +143,237 @@
 
   /* 内容顶部次级导航栏 */
   .sub-nav {
-    height: 42px;
+    height: 44px;
     background-color: #0d1724;
     border-bottom: 1px solid #1e2d3d;
     display: flex;
     align-items: center;
-    padding: 0 20px;
+    justify-content: space-between;
+    padding: 0 18px;
     gap: 10px;
+    flex-shrink: 0;
+    overflow-x: auto;
   }
-  .sub-tab {
-    width: 90px;
-    height: 26px;
-    border: 1px dashed #263952;
-    border-radius: 4px;
+  .sub-tabs-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
-  .sub-tab.active {
-    border: 1px solid #38bdf8;
-    background-color: rgba(56, 189, 248, 0.1);
+  .sub-tab-btn {
+    padding: 5px 12px;
+    border-radius: 5px;
+    font-size: 12px;
+    border: 1px solid #24364d;
+    background-color: #122032;
+    color: #94a3b8;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .sub-tab-btn.active {
+    border-color: #38bdf8;
+    background-color: rgba(56, 189, 248, 0.14);
+    color: #e0f2fe;
+    font-weight: bold;
+  }
+  .save-tip {
+    font-size: 12px;
+    color: #34d399;
+    white-space: nowrap;
   }
 
-  /* 空白模块化框架区 */
+  /* 工作区 */
   .workspace {
     flex: 1;
-    padding: 16px 20px;
-    display: grid;
-    grid-template-columns: 1.2fr 1fr;
-    grid-template-rows: 1fr 1fr;
-    gap: 16px;
+    padding: 14px 18px;
+    overflow-y: auto;
   }
-  .panel-box {
+
+  /* 模式选择：Dify风格多Agent布局 */
+  .agent-layout {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 14px;
+    min-height: 100%;
+  }
+  .agent-list-panel {
     background-color: #0f1a29;
     border: 1px solid #1d2e42;
     border-radius: 8px;
     padding: 12px;
-    display: grid;
-    gap: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
-  .sub-box {
+  .panel-title {
+    font-size: 13px;
+    font-weight: bold;
+    color: #94a3b8;
+    margin-bottom: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .agent-card {
+    padding: 10px 12px;
+    border-radius: 6px;
     background-color: #132133;
     border: 1px solid #1e3147;
+    cursor: pointer;
+    transition: 0.15s;
+  }
+  .agent-card:hover { border-color: #38bdf8; }
+  .agent-card.active {
+    border-color: #10b981;
+    background-color: rgba(16, 185, 129, 0.12);
+  }
+  .agent-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+    font-weight: bold;
+    color: #f1f5f9;
+  }
+  .agent-role-tag {
+    font-size: 11px;
+    color: #38bdf8;
+    margin-top: 4px;
+  }
+  .agent-model-tag {
+    font-size: 11px;
+    color: #64748b;
+    margin-top: 2px;
+  }
+
+  /* 右侧配置详情面板 */
+  .agent-config-panel {
+    background-color: #0f1a29;
+    border: 1px solid #1d2e42;
+    border-radius: 8px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .config-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #1e2d3d;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .config-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+  }
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .form-label {
+    font-size: 12px;
+    color: #94a3b8;
+    font-weight: bold;
+  }
+  .form-input, .form-select, .form-textarea {
+    background-color: #0b131e;
+    border: 1px solid #24364d;
     border-radius: 6px;
+    color: #e2e8f0;
+    padding: 8px 10px;
+    font-size: 13px;
+    outline: none;
+  }
+  .form-input:focus, .form-select:focus, .form-textarea:focus {
+    border-color: #38bdf8;
+  }
+  .form-textarea {
+    min-height: 76px;
+    resize: vertical;
+    line-height: 1.5;
+  }
+  .prompt-textarea {
+    min-height: 130px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 12px;
+  }
+
+  /* Skill 技能标签区 */
+  .skills-box {
+    background-color: #0b131e;
+    border: 1px solid #24364d;
+    border-radius: 6px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .skill-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .skill-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    cursor: pointer;
+    border: 1px solid #2b415c;
+    background-color: #132133;
+    color: #94a3b8;
+    user-select: none;
+  }
+  .skill-chip.enabled {
+    border-color: #38bdf8;
+    background-color: rgba(56, 189, 248, 0.15);
+    color: #e0f2fe;
+  }
+  .skill-add-row {
+    display: flex;
+    gap: 8px;
+  }
+  .btn {
+    padding: 7px 14px;
+    border-radius: 6px;
+    border: 1px solid #2b415c;
+    background-color: #16263a;
+    color: #e2e8f0;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .btn:hover { border-color: #38bdf8; }
+  .btn-primary {
+    background-color: #10b981;
+    border-color: #10b981;
+    color: #06281e;
+    font-weight: bold;
+  }
+  .btn-primary:hover { background-color: #34d399; }
+
+  .empty-module {
+    height: 100%;
+    min-height: 360px;
+    background-color: #0f1a29;
+    border: 1px dashed #24364d;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #64748b;
+    font-size: 14px;
+  }
+
+  @media (max-width: 768px) {
+    .agent-layout { grid-template-columns: 1fr; }
+    .clock-box { font-size: 16px; }
+    .menu-item { padding: 10px 8px; font-size: 13px; }
   }
 </style>
 </head>
@@ -187,13 +383,13 @@
   <aside class="sidebar">
     <div class="clock-box" id="clock">00:00:00</div>
     <ul class="menu-list" id="menu">
-      <li class="menu-item">📈 行情洞察</li>
-      <li class="menu-item active">🎛️ 模式选择</li>
-      <li class="menu-item">⏪ 模式回测</li>
-      <li class="menu-item">✨ 模式生成</li>
-      <li class="menu-item">👤 账户状态</li>
-      <li class="menu-item">📋 记录日志</li>
-      <li class="menu-item">⚙️ 系统配置</li>
+      <li class="menu-item" data-tab="行情洞察">📈 行情洞察</li>
+      <li class="menu-item active" data-tab="模式选择">🎛️ 模式选择</li>
+      <li class="menu-item" data-tab="模式回测">⏪ 模式回测</li>
+      <li class="menu-item" data-tab="模式生成">✨ 模式生成</li>
+      <li class="menu-item" data-tab="账户状态">👤 账户状态</li>
+      <li class="menu-item" data-tab="记录日志">📋 记录日志</li>
+      <li class="menu-item" data-tab="系统配置">⚙️ 系统配置</li>
     </ul>
   </aside>
 
@@ -210,39 +406,349 @@
 
       <div class="status-group">
         <div class="status-badge"><span class="dot"></span>已连接</div>
-        <div class="status-badge"><span class="dot"></span>开启模式1</div>
+        <div class="status-badge" id="modeStatusBadge"><span class="dot"></span>开启模式1</div>
       </div>
     </header>
 
-    <!-- 内容顶部导航栏 -->
+    <!-- 内容顶部次级导航栏 -->
     <nav class="sub-nav">
-      <div class="sub-tab active"></div>
-      <div class="sub-tab"></div>
-      <div class="sub-tab"></div>
-      <div class="sub-tab"></div>
+      <div class="sub-tabs-left" id="subTabs">
+        <button class="sub-tab-btn active" data-sub="agents">Agent 编排配置</button>
+        <button class="sub-tab-btn" data-sub="strategy">交易规则与仓位</button>
+        <button class="sub-tab-btn" data-sub="json">配置导出 / JSON</button>
+      </div>
+      <div class="save-tip" id="saveTip">✓ 已自动保存到本地</div>
     </nav>
 
-    <!-- 空白占位框架 -->
-    <main class="workspace">
-      <div class="panel-box" style="grid-template-columns: 1fr 2fr;">
-        <div class="sub-box"></div>
-        <div class="sub-box"></div>
-      </div>
-      <div class="panel-box">
-        <div class="sub-box"></div>
-      </div>
-      <div class="panel-box" style="grid-template-columns: 1fr 1fr;">
-        <div class="sub-box"></div>
-        <div class="sub-box"></div>
-      </div>
-      <div class="panel-box" style="grid-template-columns: 1fr 1fr;">
-        <div class="sub-box"></div>
-        <div class="sub-box"></div>
-      </div>
-    </main>
+    <!-- 主内容区 -->
+    <main class="workspace" id="workspace"></main>
   </div>
 
 <script>
+  const STORAGE_KEY = 'FLEXIBLE_TRADING_AGENTS_V1';
+
+  const DEFAULT_AGENTS = [
+    {
+      id: 'savior',
+      nickname: '救世主',
+      role: '管理者（Director）',
+      model: 'GPT-6.2',
+      enabled: true,
+      description: '统筹全局多Agent协作，审批交易指令并控制整体风险预算。',
+      systemPrompt: '你是多Agent交易系统的总指挥（救世主）。综合机会分析师与风险分析师的评估，做出最终执行决策并严格控制仓位上限。',
+      skills: ['全局风控规则', '仓位分配器', '异常熔断开关']
+    },
+    {
+      id: 'mengdao',
+      nickname: '梦道',
+      role: '交易员（Executor）',
+      model: 'Claude Sonnet 5',
+      enabled: true,
+      description: '负责将获批策略转化为精准订单，执行滑点控制与分批建仓。',
+      systemPrompt: '你是执行交易员（梦道）。根据已批准的交易计划，在交易所执行限价/市价单、止盈止损与动态移动止损，追求最优成交价格。',
+      skills: ['OKX下单执行', '止盈止损管理', '订单簿深度读取']
+    },
+    {
+      id: 'jijing',
+      nickname: '极境',
+      role: '机会分析师（Bull）',
+      model: 'DeepSeek-R1',
+      enabled: true,
+      description: '捕捉高赔率突破、资金费率异动与链上聪明钱吸筹信号。',
+      systemPrompt: '你是机会分析师（极境）。专注于寻找高盈亏比的多空机会，结合价格结构、成交量放大与资金流向给出明确入场逻辑。',
+      skills: ['K线与量价突破', '链上聪明钱追踪', '资金费率监控']
+    },
+    {
+      id: 'zhenyingxiong',
+      nickname: '真英雄',
+      role: '风险分析师（Bear）',
+      model: 'Claude Sonnet 5',
+      enabled: true,
+      description: '专挑潜在陷阱、流动性猎杀与宏观突发黑天鹅风险，投否决票。',
+      systemPrompt: '你是风险分析师（真英雄）。始终假设市场正在猎杀止损，重点排查假突破、清算密集区、宏观事件与杠杆过热风险。',
+      skills: ['清算热力图分析', '波动率预警', '宏观事件日历']
+    },
+    {
+      id: 'zhongjishanguang',
+      nickname: '终极闪光',
+      role: '复盘更新员（Updater）',
+      model: 'GPT-6.2',
+      enabled: true,
+      description: '记录每笔交易胜负归因，提炼规律并优化各Agent提示词与参数。',
+      systemPrompt: '你是复盘更新员（终极闪光）。在每轮交易结束后总结盈亏原因、识别误判模式，并输出可落地的参数与提示词迭代建议。',
+      skills: ['交易盈亏归因', '策略胜率统计', 'Prompt迭代建议']
+    }
+  ];
+
+  let state = loadState();
+  let currentMainTab = '模式选择';
+  let currentSubTab = 'agents';
+  let selectedAgentId = state.agents[0].id;
+
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed.agents) && parsed.agents.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (e) {}
+    return {
+      modeName: '开启模式1',
+      maxLeverage: 5,
+      riskPerTrade: 2,
+      agents: DEFAULT_AGENTS
+    };
+  }
+
+  function saveState(reason = '已自动保存到本地') {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    const tip = document.getElementById('saveTip');
+    if (tip) {
+      const now = new Date().toTimeString().split(' ')[0];
+      tip.textContent = `✓ ${reason} (${now})`;
+    }
+    const badge = document.getElementById('modeStatusBadge');
+    if (badge) {
+      badge.innerHTML = `<span class="dot"></span>${escapeHtml(state.modeName || '开启模式1')}`;
+    }
+  }
+
+  function escapeHtml(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function getSelectedAgent() {
+    return state.agents.find(a => a.id === selectedAgentId) || state.agents[0];
+  }
+
+  function renderWorkspace() {
+    const ws = document.getElementById('workspace');
+    if (currentMainTab !== '模式选择') {
+      ws.innerHTML = `<div class="empty-module">【${escapeHtml(currentMainTab)}】模块占位区 — 后续按阶段接入数据与功能</div>`;
+      return;
+    }
+
+    if (currentSubTab === 'strategy') {
+      ws.innerHTML = `
+        <div class="agent-config-panel" style="max-width: 720px;">
+          <div class="config-header">
+            <div>
+              <h3 style="font-size: 16px; color: #f8fafc;">交易规则与全局参数</h3>
+              <p style="font-size: 12px; color: #64748b; margin-top: 2px;">控制当前模式下的全局状态标签与风控阈值</p>
+            </div>
+            <button class="btn btn-primary" onclick="saveState('已保存全局规则')">保存设置</button>
+          </div>
+          <div class="config-grid">
+            <div class="form-group">
+              <label class="form-label">顶栏模式状态显示</label>
+              <input class="form-input" id="globalModeName" value="${escapeHtml(state.modeName)}" oninput="state.modeName = this.value; saveState();">
+            </div>
+            <div class="form-group">
+              <label class="form-label">单笔最大风险比例 (%)</label>
+              <input class="form-input" type="number" step="0.5" value="${state.riskPerTrade}" oninput="state.riskPerTrade = Number(this.value); saveState();">
+            </div>
+            <div class="form-group">
+              <label class="form-label">最大杠杆倍数 (x)</label>
+              <input class="form-input" type="number" min="1" max="125" value="${state.maxLeverage}" oninput="state.maxLeverage = Number(this.value); saveState();">
+            </div>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    if (currentSubTab === 'json') {
+      ws.innerHTML = `
+        <div class="agent-config-panel">
+          <div class="config-header">
+            <div>
+              <h3 style="font-size: 16px; color: #f8fafc;">多 Agent 配置 JSON 预览</h3>
+              <p style="font-size: 12px; color: #64748b; margin-top: 2px;">后续接入 Python 后端时，可直接读取此结构化配置</p>
+            </div>
+            <button class="btn" onclick="resetDefaultAgents()">恢复默认 5 个 Agent</button>
+          </div>
+          <textarea class="form-textarea prompt-textarea" style="min-height: 360px;" readonly>${escapeHtml(JSON.stringify(state.agents, null, 2))}</textarea>
+        </div>
+      `;
+      return;
+    }
+
+    const agent = getSelectedAgent();
+    const cardsHtml = state.agents.map(a => `
+      <div class="agent-card ${a.id === agent.id ? 'active' : ''}" onclick="selectAgent('${a.id}')">
+        <div class="agent-card-top">
+          <span>${escapeHtml(a.nickname || '未命名')}</span>
+          <span style="font-size: 11px; color: ${a.enabled ? '#34d399' : '#94a3b8'};">${a.enabled ? '● 启用' : '○ 停用'}</span>
+        </div>
+        <div class="agent-role-tag">${escapeHtml(a.role)}</div>
+        <div class="agent-model-tag">${escapeHtml(a.model)} · ${a.skills.length} 个 Skill</div>
+      </div>
+    `).join('');
+
+    const skillsHtml = agent.skills.map((sk, idx) => `
+      <span class="skill-chip enabled" title="点击移除该 Skill" onclick="removeSkill(${idx})">
+        ⚡ ${escapeHtml(sk)} ✕
+      </span>
+    `).join('');
+
+    ws.innerHTML = `
+      <div class="agent-layout">
+        <!-- 左侧 Agent 列表 -->
+        <div class="agent-list-panel">
+          <div class="panel-title">
+            <span>AI 成员 (${state.agents.length})</span>
+            <button class="btn" style="padding: 3px 8px;" onclick="addAgent()">+ 新增</button>
+          </div>
+          ${cardsHtml}
+        </div>
+
+        <!-- 右侧单个 Agent 参数编排（类似 Dify） -->
+        <div class="agent-config-panel">
+          <div class="config-header">
+            <div>
+              <h3 style="font-size: 16px; color: #f8fafc;">${escapeHtml(agent.nickname)} · 参数编排</h3>
+              <p style="font-size: 12px; color: #64748b; margin-top: 2px;">单独配置该 AI 的身份昵称、模型、提示词与挂载 Skill</p>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <label style="font-size: 12px; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                <input type="checkbox" ${agent.enabled ? 'checked' : ''} onchange="updateAgentField('enabled', this.checked)">
+                启用该 Agent
+              </label>
+              ${state.agents.length > 1 ? `<button class="btn" onclick="deleteAgent('${agent.id}')">删除</button>` : ''}
+            </div>
+          </div>
+
+          <div class="config-grid">
+            <div class="form-group">
+              <label class="form-label">昵称（Nickname）</label>
+              <input class="form-input" value="${escapeHtml(agent.nickname)}" oninput="updateAgentField('nickname', this.value)">
+            </div>
+            <div class="form-group">
+              <label class="form-label">角色定位（Role）</label>
+              <input class="form-input" value="${escapeHtml(agent.role)}" oninput="updateAgentField('role', this.value)">
+            </div>
+            <div class="form-group">
+              <label class="form-label">大模型（Model）</label>
+              <select class="form-select" onchange="updateAgentField('model', this.value)">
+                ${['GPT-6.2', 'Claude Sonnet 5', 'DeepSeek-R1', 'Gemini 3.1 Pro'].map(m =>
+                  `<option value="${m}" ${agent.model === m ? 'selected' : ''}>${m}</option>`
+                ).join('')}
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">角色描述（Description）</label>
+            <textarea class="form-textarea" oninput="updateAgentField('description', this.value)">${escapeHtml(agent.description)}</textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">系统提示词（System Prompt）</label>
+            <textarea class="form-textarea prompt-textarea" oninput="updateAgentField('systemPrompt', this.value)">${escapeHtml(agent.systemPrompt)}</textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">技能与工具挂载（Skills — 点击标签可移除）</label>
+            <div class="skills-box">
+              <div class="skill-tags">
+                ${skillsHtml || '<span style="font-size: 12px; color: #64748b;">暂无挂载 Skill，请在下方添加</span>'}
+              </div>
+              <div class="skill-add-row">
+                <input class="form-input" id="newSkillInput" style="flex: 1;" placeholder="输入新 Skill 名称，例如：OKX行情接口、链上巨鲸监控" onkeydown="if(event.key==='Enter') addSkill()">
+                <button class="btn btn-primary" onclick="addSkill()">添加 Skill</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function selectAgent(id) {
+    selectedAgentId = id;
+    renderWorkspace();
+  }
+
+  function updateAgentField(field, value) {
+    const agent = getSelectedAgent();
+    agent[field] = value;
+    saveState();
+    if (field === 'nickname' || field === 'role' || field === 'model' || field === 'enabled') {
+      const activeCard = document.querySelector('.agent-card.active');
+      if (activeCard) {
+        activeCard.querySelector('.agent-card-top').innerHTML = `
+          <span>${escapeHtml(agent.nickname || '未命名')}</span>
+          <span style="font-size: 11px; color: ${agent.enabled ? '#34d399' : '#94a3b8'};">${agent.enabled ? '● 启用' : '○ 停用'}</span>
+        `;
+        activeCard.querySelector('.agent-role-tag').textContent = agent.role;
+        activeCard.querySelector('.agent-model-tag').textContent = `${agent.model} · ${agent.skills.length} 个 Skill`;
+      }
+      if (field === 'nickname') {
+        document.querySelector('.config-header h3').textContent = `${agent.nickname} · 参数编排`;
+      }
+    }
+  }
+
+  function addSkill() {
+    const input = document.getElementById('newSkillInput');
+    if (!input) return;
+    const val = input.value.trim();
+    if (!val) return;
+    const agent = getSelectedAgent();
+    if (!agent.skills.includes(val)) {
+      agent.skills.push(val);
+      saveState(`已为 ${agent.nickname} 添加 Skill`);
+      renderWorkspace();
+    }
+  }
+
+  function removeSkill(idx) {
+    const agent = getSelectedAgent();
+    agent.skills.splice(idx, 1);
+    saveState(`已移除 ${agent.nickname} 的 Skill`);
+    renderWorkspace();
+  }
+
+  function addAgent() {
+    const num = state.agents.length + 1;
+    const newId = 'agent_' + Date.now();
+    state.agents.push({
+      id: newId,
+      nickname: `新Agent ${num}`,
+      role: '自定义分析角色',
+      model: 'GPT-6.2',
+      enabled: true,
+      description: '请填写该 Agent 的职责与分析重点。',
+      systemPrompt: '你是一个专业的交易辅助 Agent，请根据输入信息输出结构化结论。',
+      skills: ['基础行情读取']
+    });
+    selectedAgentId = newId;
+    saveState('已新增 Agent');
+    renderWorkspace();
+  }
+
+  function deleteAgent(id) {
+    if (state.agents.length <= 1) return;
+    state.agents = state.agents.filter(a => a.id !== id);
+    selectedAgentId = state.agents[0].id;
+    saveState('已删除 Agent');
+    renderWorkspace();
+  }
+
+  function resetDefaultAgents() {
+    state.agents = JSON.parse(JSON.stringify(DEFAULT_AGENTS));
+    selectedAgentId = state.agents[0].id;
+    saveState('已恢复默认 5 个 Agent');
+    renderWorkspace();
+  }
+
   // 1. 实时秒级时钟
   function updateClock() {
     const now = new Date();
@@ -251,19 +757,35 @@
   setInterval(updateClock, 1000);
   updateClock();
 
-  // 2. 左侧菜单点击切换高亮
+  // 2. 左侧 7 栏切换
   document.querySelectorAll('.menu-item').forEach(item => {
     item.addEventListener('click', () => {
       document.querySelectorAll('.menu-item').forEach(i => i.classList.remove('active'));
       item.classList.add('active');
+      currentMainTab = item.dataset.tab;
+      renderWorkspace();
     });
   });
 
-  // 3. 战歌按钮切换状态
+  // 3. 次级导航栏切换
+  document.querySelectorAll('.sub-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.sub-tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentSubTab = btn.dataset.sub;
+      renderWorkspace();
+    });
+  });
+
+  // 4. 战歌播放按钮
   const playBtn = document.getElementById('playBtn');
   playBtn.addEventListener('click', () => {
     playBtn.innerText = playBtn.innerText === '▶' ? '❚❚' : '▶';
   });
+
+  // 初始化
+  saveState('已加载本地配置');
+  renderWorkspace();
 </script>
 </body>
 </html>
