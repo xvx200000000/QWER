@@ -322,6 +322,23 @@
     flex-direction: column;
     gap: 12px;
   }
+  .section-box {
+    background-color: #0c1623;
+    border: 1px solid #1e3147;
+    border-radius: 7px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .section-title {
+    font-size: 12px;
+    font-weight: bold;
+    color: #7dd3fc;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
   .config-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -349,11 +366,11 @@
     border-color: #38bdf8;
   }
   .form-textarea {
-    min-height: 68px;
+    min-height: 66px;
     resize: vertical;
   }
   .prompt-textarea {
-    min-height: 115px;
+    min-height: 110px;
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     font-size: 12px;
   }
@@ -372,6 +389,18 @@
     color: #e0f2fe;
     cursor: pointer;
   }
+  .test-output {
+    background-color: #070d15;
+    border: 1px solid #1e2f44;
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 12px;
+    color: #cbd5e1;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 150px;
+    overflow-y: auto;
+  }
   .btn {
     padding: 6px 12px;
     border-radius: 6px;
@@ -381,6 +410,7 @@
     font-size: 12px;
     cursor: pointer;
   }
+  .btn:hover { border-color: #38bdf8; }
   .btn-primary {
     background-color: #10b981;
     border-color: #10b981;
@@ -439,110 +469,131 @@
   };
 
   const MENU_CONFIG = [
-    {
-      name: '行情洞察',
-      icon: '📈',
-      children: ['实时盘口', '资金流向', '链上异动']
-    },
-    {
-      name: '模式选择',
-      icon: '🎛️',
-      children: ['多Agent编排', '模式预设1', '模式预设2']
-    },
-    {
-      name: '模式回测',
-      icon: '⏪',
-      children: ['历史回测', '参数对比', '回测报告']
-    },
-    {
-      name: '模式生成',
-      icon: '✨',
-      children: ['规则生成', '提示词工坊', '策略模板']
-    },
-    {
-      name: '账户状态',
-      icon: '👤',
-      children: ['总览状态', '持仓明细', '保证金风控']
-    },
-    {
-      name: '记录日志',
-      icon: '📋',
-      children: ['Agent协作记录', '成交流水', '系统报错']
-    },
-    {
-      name: '系统配置',
-      icon: '⚙️',
-      children: ['API密钥', '模型接入', '通知设置']
-    }
+    { name: '行情洞察', icon: '📈', children: ['实时盘口', '资金流向', '链上异动'] },
+    { name: '模式选择', icon: '🎛️', children: ['多Agent编排', '模式预设1', '模式预设2'] },
+    { name: '模式回测', icon: '⏪', children: ['历史回测', '参数对比', '回测报告'] },
+    { name: '模式生成', icon: '✨', children: ['规则生成', '提示词工坊', '策略模板'] },
+    { name: '账户状态', icon: '👤', children: ['总览状态', '持仓明细', '保证金风控'] },
+    { name: '记录日志', icon: '📋', children: ['Agent协作记录', '成交流水', '系统报错'] },
+    { name: '系统配置', icon: '⚙️', children: ['API密钥', '模型接入', '通知设置'] }
   ];
+
+  // 不同接入方式的默认地址与示例模型 ID
+  const PROVIDER_PRESETS = {
+    openai_compat: {
+      label: 'OpenAI 兼容接口（通用/中转/DeepSeek等）',
+      defaultBaseUrl: 'https://api.openai.com/v1',
+      defaultModelId: 'gpt-4o-mini',
+      baseUrlHint: '填接口根地址，如 https://api.openai.com/v1 或 https://api.deepseek.com/v1'
+    },
+    openrouter: {
+      label: 'OpenRouter 统一网关',
+      defaultBaseUrl: 'https://openrouter.ai/api/v1',
+      defaultModelId: 'openai/gpt-4o-mini',
+      baseUrlHint: '默认 https://openrouter.ai/api/v1'
+    },
+    anthropic: {
+      label: 'Anthropic Claude 接口',
+      defaultBaseUrl: 'https://api.anthropic.com/v1/messages',
+      defaultModelId: 'claude-3-7-sonnet-20250219',
+      baseUrlHint: '默认 https://api.anthropic.com/v1/messages'
+    },
+    gemini: {
+      label: 'Google Gemini 接口',
+      defaultBaseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+      defaultModelId: 'gemini-2.5-flash',
+      baseUrlHint: '默认 https://generativelanguage.googleapis.com/v1beta'
+    }
+  };
+
+  function makeAgent(id, nickname, role, provider, modelId, description, systemPrompt, skills) {
+    const preset = PROVIDER_PRESETS[provider] || PROVIDER_PRESETS.openai_compat;
+    return {
+      id,
+      nickname,
+      role,
+      enabled: true,
+      description,
+      systemPrompt,
+      skills,
+      apiConfig: {
+        provider,
+        baseUrl: preset.defaultBaseUrl,
+        apiKey: '',
+        modelId: modelId || preset.defaultModelId,
+        temperature: 0.7
+      },
+      testResult: ''
+    };
+  }
 
   const DEFAULT_AGENTS = [
-    {
-      id: 'savior',
-      nickname: '救世主',
-      role: '管理者（Director）',
-      model: 'GPT-6.2',
-      enabled: true,
-      description: '统筹多Agent协作，审批交易指令并控制整体风险。',
-      systemPrompt: '你是多Agent交易系统的总指挥（救世主），综合机会与风险评估做最终决策。',
-      skills: ['全局风控规则', '仓位分配器']
-    },
-    {
-      id: 'mengdao',
-      nickname: '梦道',
-      role: '交易员（Executor）',
-      model: 'Claude Sonnet 5',
-      enabled: true,
-      description: '负责订单执行、滑点控制与止盈止损管理。',
-      systemPrompt: '你是执行交易员（梦道），按获批指令精准执行下单与风控单。',
-      skills: ['OKX下单执行', '止盈止损管理']
-    },
-    {
-      id: 'jijing',
-      nickname: '极境',
-      role: '机会分析师（Bull）',
-      model: 'DeepSeek-R1',
-      enabled: true,
-      description: '捕捉高赔率突破、资金异动与潜在多空机会。',
-      systemPrompt: '你是机会分析师（极境），发掘高盈亏比结构与资金信号。',
-      skills: ['K线与量价突破', '资金费率监控']
-    },
-    {
-      id: 'zhenyingxiong',
-      nickname: '真英雄',
-      role: '风险分析师（Bear）',
-      model: 'Claude Sonnet 5',
-      enabled: true,
-      description: '排查流动性猎杀、假突破与突发风险。',
-      systemPrompt: '你是风险分析师（真英雄），重点识别潜在陷阱与风险敞口。',
-      skills: ['清算热力图分析', '波动率预警']
-    },
-    {
-      id: 'zhongjishanguang',
-      nickname: '终极闪光',
-      role: '复盘更新员（Updater）',
-      model: 'GPT-6.2',
-      enabled: true,
-      description: '复盘交易结果并优化提示词与策略参数。',
-      systemPrompt: '你是复盘更新员（终极闪光），总结盈亏归因并提出参数优化。',
-      skills: ['交易盈亏归因', 'Prompt迭代建议']
-    }
+    makeAgent(
+      'savior', '救世主', '管理者（Director）',
+      'openai_compat', 'gpt-4o-mini',
+      '统筹多Agent协作，审批交易指令并控制整体风险。',
+      '你是多Agent交易系统的总指挥（救世主），综合机会与风险评估做最终决策。',
+      ['全局风控规则', '仓位分配器']
+    ),
+    makeAgent(
+      'mengdao', '梦道', '交易员（Executor）',
+      'openrouter', 'anthropic/claude-3.7-sonnet',
+      '负责订单执行、滑点控制与止盈止损管理。',
+      '你是执行交易员（梦道），按获批指令精准执行下单与风控单。',
+      ['OKX下单执行', '止盈止损管理']
+    ),
+    makeAgent(
+      'jijing', '极境', '机会分析师（Bull）',
+      'openai_compat', 'deepseek-chat',
+      '捕捉高赔率突破、资金异动与潜在多空机会。',
+      '你是机会分析师（极境），发掘高盈亏比结构与资金信号。',
+      ['K线与量价突破', '资金费率监控']
+    ),
+    makeAgent(
+      'zhenyingxiong', '真英雄', '风险分析师（Bear）',
+      'anthropic', 'claude-3-7-sonnet-20250219',
+      '排查流动性猎杀、假突破与突发风险。',
+      '你是风险分析师（真英雄），重点识别潜在陷阱与风险敞口。',
+      ['清算热力图分析', '波动率预警']
+    ),
+    makeAgent(
+      'zhongjishanguang', '终极闪光', '复盘更新员（Updater）',
+      'gemini', 'gemini-2.5-flash',
+      '复盘交易结果并优化提示词与策略参数。',
+      '你是复盘更新员（终极闪光），总结盈亏归因并提出参数优化。',
+      ['交易盈亏归因', 'Prompt迭代建议']
+    )
   ];
 
-  const STORAGE_KEY = 'AGENTS_CONFIG_ONLY_V1';
+  const STORAGE_KEY = 'AGENTS_CONFIG_MULTI_API_V1';
 
   let openGroups = new Set(['模式选择']);
   let openTabs = [PINNED_TAB];
   let activeTabKey = PINNED_TAB.key;
   let agentsData = loadAgents();
   let selectedAgentId = agentsData[0].id;
+  let showApiKeyPlain = false;
+  let testingAgentId = null;
 
   function loadAgents() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map(a => ({
+            ...a,
+            skills: Array.isArray(a.skills) ? a.skills : [],
+            testResult: a.testResult || '',
+            apiConfig: {
+              provider: a.apiConfig?.provider || 'openai_compat',
+              baseUrl: a.apiConfig?.baseUrl || 'https://api.openai.com/v1',
+              apiKey: a.apiConfig?.apiKey || '',
+              modelId: a.apiConfig?.modelId || 'gpt-4o-mini',
+              temperature: typeof a.apiConfig?.temperature === 'number' ? a.apiConfig.temperature : 0.7
+            }
+          }));
+        }
       }
     } catch (e) {}
     return JSON.parse(JSON.stringify(DEFAULT_AGENTS));
@@ -560,7 +611,10 @@
       .replace(/"/g, '&quot;');
   }
 
-  // 渲染左侧控制面板
+  function getSelectedAgent() {
+    return agentsData.find(a => a.id === selectedAgentId) || agentsData[0];
+  }
+
   function renderSidebar() {
     const ul = document.getElementById('sidebarMenu');
     const activeTab = openTabs.find(t => t.key === activeTabKey);
@@ -591,27 +645,20 @@
     }).join('');
   }
 
-  // 点击左侧大类：展开或收起细分选项
   function onToggleGroup(groupName) {
-    if (openGroups.has(groupName)) {
-      openGroups.delete(groupName);
-    } else {
-      openGroups.add(groupName);
-    }
+    if (openGroups.has(groupName)) openGroups.delete(groupName);
+    else openGroups.add(groupName);
     renderSidebar();
   }
 
-  // 点击左侧细分选项：弹出/切换到右侧对应导航栏
   function onSelectSubItem(category, subItem) {
     const key = `${category}::${subItem}`;
     const modeBadge = document.getElementById('modeBadge');
     if (category === '模式选择' && subItem.startsWith('模式预设')) {
-      const label = subItem === '模式预设1' ? '开启模式1' : '开启模式2';
-      modeBadge.innerHTML = `<span class="dot"></span>${label}`;
+      modeBadge.innerHTML = `<span class="dot"></span>${subItem === '模式预设1' ? '开启模式1' : '开启模式2'}`;
     }
 
-    const exists = openTabs.some(t => t.key === key);
-    if (!exists) {
+    if (!openTabs.some(t => t.key === key)) {
       openTabs.push({
         key,
         category,
@@ -626,7 +673,6 @@
     renderWorkspace();
   }
 
-  // 渲染右侧顶部导航栏（第一个永久固定为“账户状态”，不可关闭）
   function renderTopTabs() {
     const bar = document.getElementById('topTabBar');
     bar.innerHTML = openTabs.map(tab => {
@@ -643,7 +689,6 @@
     }).join('');
   }
 
-  // 点击顶部某个导航栏：切换到该栏目
   function onSwitchTab(key) {
     activeTabKey = key;
     renderSidebar();
@@ -651,13 +696,11 @@
     renderWorkspace();
   }
 
-  // 点击导航栏右侧小 X：关闭该栏目
   function onCloseTab(event, key) {
     event.stopPropagation();
     if (key === PINNED_TAB.key) return;
     const idx = openTabs.findIndex(t => t.key === key);
     if (idx === -1) return;
-
     openTabs.splice(idx, 1);
     if (activeTabKey === key) {
       const fallback = openTabs[idx - 1] || openTabs[0] || PINNED_TAB;
@@ -668,18 +711,20 @@
     renderWorkspace();
   }
 
-  // 渲染右侧内容区（当前除“模式选择”细分项外，其余全部为干净空白模块框）
   function renderWorkspace() {
     const ws = document.getElementById('workspace');
     const tab = openTabs.find(t => t.key === activeTabKey) || PINNED_TAB;
 
     if (tab.category === '模式选择') {
-      const agent = agentsData.find(a => a.id === selectedAgentId) || agentsData[0];
+      const agent = getSelectedAgent();
+      const api = agent.apiConfig;
+      const preset = PROVIDER_PRESETS[api.provider] || PROVIDER_PRESETS.openai_compat;
+
       const cards = agentsData.map(a => `
         <div class="agent-card ${a.id === agent.id ? 'active' : ''}" onclick="selectAgent('${a.id}')">
           <div style="font-size:13px;font-weight:bold;color:#f8fafc;">${escapeHtml(a.nickname)}</div>
           <div style="font-size:11px;color:#38bdf8;margin-top:2px;">${escapeHtml(a.role)}</div>
-          <div style="font-size:11px;color:#64748b;margin-top:2px;">${escapeHtml(a.model)}</div>
+          <div style="font-size:11px;color:#64748b;margin-top:2px;">${escapeHtml(a.apiConfig.modelId || '未填模型ID')}</div>
         </div>
       `).join('');
 
@@ -699,12 +744,13 @@
 
           <div class="agent-config-panel">
             <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #1e2d3d;padding-bottom:8px;">
-              <strong style="font-size:15px;color:#f8fafc;">${escapeHtml(agent.nickname)} · 参数设置</strong>
+              <strong style="font-size:15px;color:#f8fafc;">${escapeHtml(agent.nickname)} · 独立配置与模型接口</strong>
               <label style="font-size:12px;cursor:pointer;">
                 <input type="checkbox" ${agent.enabled ? 'checked' : ''} onchange="updateAgent('enabled', this.checked)"> 启用
               </label>
             </div>
 
+            <!-- 基础信息 -->
             <div class="config-grid">
               <div class="form-group">
                 <label class="form-label">昵称</label>
@@ -715,15 +761,58 @@
                 <input class="form-input" value="${escapeHtml(agent.role)}" oninput="updateAgent('role', this.value)">
               </div>
               <div class="form-group">
-                <label class="form-label">模型</label>
-                <select class="form-select" onchange="updateAgent('model', this.value)">
-                  ${['GPT-6.2', 'Claude Sonnet 5', 'DeepSeek-R1', 'Gemini 3.1 Pro'].map(m =>
-                    `<option value="${m}" ${agent.model === m ? 'selected' : ''}>${m}</option>`
-                  ).join('')}
-                </select>
+                <label class="form-label">Temperature（0~2）</label>
+                <input class="form-input" type="number" step="0.1" min="0" max="2" value="${api.temperature}" oninput="updateApiConfig('temperature', Number(this.value))">
               </div>
             </div>
 
+            <!-- 独立大模型接口接入区 -->
+            <div class="section-box">
+              <div class="section-title">
+                <span>🔌 大模型接口接入设置（当前 Agent 独享）</span>
+                <button class="btn btn-primary" onclick="testAgentConnection()" ${testingAgentId === agent.id ? 'disabled' : ''}>
+                  ${testingAgentId === agent.id ? '请求中...' : '测试连接 / 试跑一句'}
+                </button>
+              </div>
+
+              <div class="config-grid">
+                <div class="form-group">
+                  <label class="form-label">接入方式 / 接口类型</label>
+                  <select class="form-select" onchange="onProviderChange(this.value)">
+                    ${Object.entries(PROVIDER_PRESETS).map(([k, v]) =>
+                      `<option value="${k}" ${api.provider === k ? 'selected' : ''}>${escapeHtml(v.label)}</option>`
+                    ).join('')}
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">真实 Model ID</label>
+                  <input class="form-input" value="${escapeHtml(api.modelId)}" placeholder="例如 gpt-4o-mini / deepseek-chat" oninput="updateApiConfig('modelId', this.value)">
+                </div>
+              </div>
+
+              <div class="config-grid">
+                <div class="form-group">
+                  <label class="form-label">接口地址 Base URL（${escapeHtml(preset.baseUrlHint)}）</label>
+                  <input class="form-input" value="${escapeHtml(api.baseUrl)}" oninput="updateApiConfig('baseUrl', this.value)">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">
+                    API Key
+                    <span style="margin-left:8px;color:#38bdf8;cursor:pointer;" onclick="toggleKeyVisibility()">${showApiKeyPlain ? '隐藏' : '显示'}</span>
+                  </label>
+                  <input class="form-input" type="${showApiKeyPlain ? 'text' : 'password'}" value="${escapeHtml(api.apiKey)}" placeholder="粘贴你的 API Key" oninput="updateApiConfig('apiKey', this.value)">
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">试跑测试消息</label>
+                <input class="form-input" id="testPromptInput" value="请用你的角色身份简短介绍自己，并给出一条简短提示。">
+              </div>
+
+              ${agent.testResult ? `<div class="test-output">${escapeHtml(agent.testResult)}</div>` : ''}
+            </div>
+
+            <!-- 描述与提示词 -->
             <div class="form-group">
               <label class="form-label">描述</label>
               <textarea class="form-textarea" oninput="updateAgent('description', this.value)">${escapeHtml(agent.description)}</textarea>
@@ -734,6 +823,7 @@
               <textarea class="form-textarea prompt-textarea" oninput="updateAgent('systemPrompt', this.value)">${escapeHtml(agent.systemPrompt)}</textarea>
             </div>
 
+            <!-- Skill -->
             <div class="form-group">
               <label class="form-label">Skill</label>
               <div class="skill-tags">${skillChips}</div>
@@ -748,7 +838,7 @@
       return;
     }
 
-    // 其余栏目的内容区保持干净空白模块化框架，等待后续填入具体内容
+    // 其余栏目的内容区保持干净空白模块化框架
     ws.innerHTML = `
       <div class="wireframe-grid">
         <div class="wf-box" style="grid-template-columns: 1fr 2fr;">
@@ -776,12 +866,36 @@
   }
 
   function updateAgent(field, val) {
-    const agent = agentsData.find(a => a.id === selectedAgentId) || agentsData[0];
+    const agent = getSelectedAgent();
     agent[field] = val;
     saveAgents();
-    if (field === 'nickname' || field === 'role' || field === 'model') {
+    if (field === 'nickname' || field === 'role') {
       renderWorkspace();
     }
+  }
+
+  function updateApiConfig(field, val) {
+    const agent = getSelectedAgent();
+    agent.apiConfig[field] = val;
+    saveAgents();
+    if (field === 'modelId') {
+      renderWorkspace();
+    }
+  }
+
+  function onProviderChange(newProvider) {
+    const agent = getSelectedAgent();
+    const preset = PROVIDER_PRESETS[newProvider] || PROVIDER_PRESETS.openai_compat;
+    agent.apiConfig.provider = newProvider;
+    agent.apiConfig.baseUrl = preset.defaultBaseUrl;
+    agent.apiConfig.modelId = preset.defaultModelId;
+    saveAgents();
+    renderWorkspace();
+  }
+
+  function toggleKeyVisibility() {
+    showApiKeyPlain = !showApiKeyPlain;
+    renderWorkspace();
   }
 
   function addSkill() {
@@ -789,7 +903,7 @@
     if (!el) return;
     const val = el.value.trim();
     if (!val) return;
-    const agent = agentsData.find(a => a.id === selectedAgentId) || agentsData[0];
+    const agent = getSelectedAgent();
     if (!agent.skills.includes(val)) {
       agent.skills.push(val);
       saveAgents();
@@ -798,27 +912,129 @@
   }
 
   function removeSkill(idx) {
-    const agent = agentsData.find(a => a.id === selectedAgentId) || agentsData[0];
+    const agent = getSelectedAgent();
     agent.skills.splice(idx, 1);
     saveAgents();
     renderWorkspace();
   }
 
   function addAgent() {
-    const id = 'agent_' + Date.now();
-    agentsData.push({
-      id,
-      nickname: `Agent ${agentsData.length + 1}`,
-      role: '自定义角色',
-      model: 'GPT-6.2',
-      enabled: true,
-      description: '',
-      systemPrompt: '',
-      skills: []
-    });
-    selectedAgentId = id;
+    const newAgent = makeAgent(
+      'agent_' + Date.now(),
+      `Agent ${agentsData.length + 1}`,
+      '自定义角色',
+      'openai_compat',
+      'gpt-4o-mini',
+      '',
+      '',
+      []
+    );
+    agentsData.push(newAgent);
+    selectedAgentId = newAgent.id;
     saveAgents();
     renderWorkspace();
+  }
+
+  // 前端直接测试当前 Agent 的模型接口
+  async function testAgentConnection() {
+    const agent = getSelectedAgent();
+    const api = agent.apiConfig;
+    const userMsgEl = document.getElementById('testPromptInput');
+    const userMsg = (userMsgEl && userMsgEl.value.trim()) || '你好，请简短回复收到。';
+
+    if (!api.apiKey.trim()) {
+      agent.testResult = '❌ 请先填写 API Key';
+      saveAgents();
+      renderWorkspace();
+      return;
+    }
+    if (!api.modelId.trim()) {
+      agent.testResult = '❌ 请先填写 Model ID';
+      saveAgents();
+      renderWorkspace();
+      return;
+    }
+
+    testingAgentId = agent.id;
+    agent.testResult = '⏳ 正在发送请求...';
+    renderWorkspace();
+
+    try {
+      let replyText = '';
+      const baseUrl = api.baseUrl.replace(/\/+$/, '');
+
+      if (api.provider === 'anthropic') {
+        const res = await fetch(baseUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': api.apiKey.trim(),
+            'anthropic-version': '2023-06-01'
+          },
+          body: JSON.stringify({
+            model: api.modelId.trim(),
+            max_tokens: 300,
+            temperature: api.temperature,
+            system: agent.systemPrompt || '',
+            messages: [{ role: 'user', content: userMsg }]
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error?.message || `HTTP ${res.status}`);
+        replyText = (data.content || []).map(c => c.text || '').join('\n') || JSON.stringify(data);
+      } else if (api.provider === 'gemini') {
+        const url = `${baseUrl}/models/${encodeURIComponent(api.modelId.trim())}:generateContent?key=${encodeURIComponent(api.apiKey.trim())}`;
+        const body = {
+          contents: [{ role: 'user', parts: [{ text: userMsg }] }],
+          generationConfig: { temperature: api.temperature, maxOutputTokens: 300 }
+        };
+        if (agent.systemPrompt) {
+          body.systemInstruction = { parts: [{ text: agent.systemPrompt }] };
+        }
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error?.message || `HTTP ${res.status}`);
+        replyText = data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('\n') || JSON.stringify(data);
+      } else {
+        // OpenAI 兼容接口 & OpenRouter
+        const headers = {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${api.apiKey.trim()}`
+        };
+        if (api.provider === 'openrouter') {
+          headers['HTTP-Referer'] = window.location.origin;
+        }
+        const messages = [];
+        if (agent.systemPrompt) messages.push({ role: 'system', content: agent.systemPrompt });
+        messages.push({ role: 'user', content: userMsg });
+
+        const res = await fetch(`${baseUrl}/chat/completions`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            model: api.modelId.trim(),
+            temperature: api.temperature,
+            max_tokens: 300,
+            messages
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error?.message || `HTTP ${res.status}`);
+        replyText = data.choices?.[0]?.message?.content || JSON.stringify(data);
+      }
+
+      agent.testResult = `✅ 调用成功（${api.modelId}）：\n${replyText}`;
+    } catch (err) {
+      agent.testResult = `❌ 调用失败：${err.message}\n提示：若接口服务未允许浏览器直接跨域（CORS），后续接入后端中转即可解决。`;
+    } finally {
+      testingAgentId = null;
+      saveAgents();
+      renderWorkspace();
+    }
   }
 
   // 实时秒级时钟
