@@ -338,6 +338,8 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
   }
   .config-grid {
     display: grid;
@@ -401,6 +403,126 @@
     max-height: 150px;
     overflow-y: auto;
   }
+
+  /* 实时聊天室样式 */
+  .chat-layout {
+    display: grid;
+    grid-template-columns: 230px 1fr;
+    gap: 14px;
+    height: 100%;
+    min-height: 440px;
+  }
+  .room-sidebar {
+    background-color: #0f1a29;
+    border: 1px solid #1d2e42;
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+  }
+  .room-item {
+    padding: 9px 10px;
+    border-radius: 6px;
+    background-color: #132133;
+    border: 1px solid #1e3147;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+  }
+  .room-item.active {
+    border-color: #38bdf8;
+    background-color: rgba(56, 189, 248, 0.14);
+  }
+  .chat-main {
+    background-color: #0f1a29;
+    border: 1px solid #1d2e42;
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 0;
+  }
+  .chat-header {
+    border-bottom: 1px solid #1e2d3d;
+    padding-bottom: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .member-selector {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+  }
+  .member-toggle {
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 12px;
+    cursor: pointer;
+    border: 1px solid #263b54;
+    background-color: #132133;
+    color: #94a3b8;
+    user-select: none;
+  }
+  .member-toggle.selected {
+    border-color: #10b981;
+    background-color: rgba(16, 185, 129, 0.16);
+    color: #a7f3d0;
+  }
+  .chat-messages {
+    flex: 1;
+    min-height: 200px;
+    overflow-y: auto;
+    background-color: #09111b;
+    border: 1px solid #1a2a3e;
+    border-radius: 6px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .msg-bubble {
+    max-width: 85%;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .msg-user {
+    align-self: flex-end;
+    background-color: rgba(56, 189, 248, 0.18);
+    border: 1px solid rgba(56, 189, 248, 0.45);
+    color: #f0f9ff;
+  }
+  .msg-agent {
+    align-self: flex-start;
+    background-color: #132236;
+    border: 1px solid #233852;
+    color: #e2e8f0;
+  }
+  .msg-meta {
+    font-size: 11px;
+    color: #7dd3fc;
+    margin-bottom: 3px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .chat-input-box {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
   .btn {
     padding: 6px 12px;
     border-radius: 6px;
@@ -423,7 +545,7 @@
     .menu-parent { font-size: 13px; padding: 9px 6px; }
     .sub-menu-item { font-size: 12px; padding: 6px 8px; }
     .wireframe-grid { grid-template-columns: 1fr; grid-template-rows: auto; }
-    .agent-layout { grid-template-columns: 1fr; }
+    .agent-layout, .chat-layout { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -468,8 +590,10 @@
     pinned: true
   };
 
+  // “实时聊天”放在“行情洞察”下面
   const MENU_CONFIG = [
     { name: '行情洞察', icon: '📈', children: ['实时盘口', '资金流向', '链上异动'] },
+    { name: '实时聊天', icon: '💬', children: ['Agent聊天室', '多Agent群聊', '单Agent测试'] },
     { name: '模式选择', icon: '🎛️', children: ['多Agent编排', '模式预设1', '模式预设2'] },
     { name: '模式回测', icon: '⏪', children: ['历史回测', '参数对比', '回测报告'] },
     { name: '模式生成', icon: '✨', children: ['规则生成', '提示词工坊', '策略模板'] },
@@ -478,7 +602,6 @@
     { name: '系统配置', icon: '⚙️', children: ['API密钥', '模型接入', '通知设置'] }
   ];
 
-  // 不同接入方式的默认地址与示例模型 ID
   const PROVIDER_PRESETS = {
     openai_compat: {
       label: 'OpenAI 兼容接口（通用/中转/DeepSeek等）',
@@ -565,9 +688,10 @@
     )
   ];
 
-  const STORAGE_KEY = 'AGENTS_CONFIG_MULTI_API_V1';
+  const AGENTS_STORAGE_KEY = 'AGENTS_CONFIG_MULTI_API_V1';
+  const ROOMS_STORAGE_KEY = 'AGENT_CHAT_ROOMS_V1';
 
-  let openGroups = new Set(['模式选择']);
+  let openGroups = new Set(['实时聊天']);
   let openTabs = [PINNED_TAB];
   let activeTabKey = PINNED_TAB.key;
   let agentsData = loadAgents();
@@ -575,9 +699,13 @@
   let showApiKeyPlain = false;
   let testingAgentId = null;
 
+  let chatRooms = loadRooms();
+  let activeRoomId = chatRooms[0].id;
+  let sendingChat = false;
+
   function loadAgents() {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = localStorage.getItem(AGENTS_STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -600,7 +728,51 @@
   }
 
   function saveAgents() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(agentsData));
+    localStorage.setItem(AGENTS_STORAGE_KEY, JSON.stringify(agentsData));
+  }
+
+  function createDefaultRooms() {
+    const allIds = agentsData.map(a => a.id);
+    return [
+      {
+        id: 'room_war_council',
+        name: '多Agent作战室',
+        memberIds: allIds,
+        messages: [
+          {
+            senderType: 'system',
+            senderName: '系统',
+            text: '聊天室已创建。可在上方勾选参与的 Agent，输入消息测试真实接口或点击“模拟回复”测试流程。',
+            time: getNowTime()
+          }
+        ]
+      },
+      {
+        id: 'room_bull_bear',
+        name: '多空辩论室',
+        memberIds: ['jijing', 'zhenyingxiong', 'savior'].filter(id => agentsData.some(a => a.id === id)),
+        messages: []
+      }
+    ];
+  }
+
+  function loadRooms() {
+    try {
+      const raw = localStorage.getItem(ROOMS_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return createDefaultRooms();
+  }
+
+  function saveRooms() {
+    localStorage.setItem(ROOMS_STORAGE_KEY, JSON.stringify(chatRooms));
+  }
+
+  function getNowTime() {
+    return new Date().toTimeString().split(' ')[0];
   }
 
   function escapeHtml(str) {
@@ -613,6 +785,10 @@
 
   function getSelectedAgent() {
     return agentsData.find(a => a.id === selectedAgentId) || agentsData[0];
+  }
+
+  function getActiveRoom() {
+    return chatRooms.find(r => r.id === activeRoomId) || chatRooms[0];
   }
 
   function renderSidebar() {
@@ -711,9 +887,324 @@
     renderWorkspace();
   }
 
+  // 渲染“实时聊天”工作区
+  function renderChatWorkspace() {
+    const room = getActiveRoom();
+    const roomListHtml = chatRooms.map(r => `
+      <div class="room-item ${r.id === room.id ? 'active' : ''}" onclick="selectRoom('${r.id}')">
+        <div style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+          <div style="font-size:13px;font-weight:bold;color:#f1f5f9;">${escapeHtml(r.name)}</div>
+          <div style="font-size:11px;color:#64748b;">${r.memberIds.length} 位 Agent · ${r.messages.length} 条记录</div>
+        </div>
+        ${chatRooms.length > 1 ? `<span class="close-x" title="删除聊天室" onclick="deleteRoom(event, '${r.id}')">×</span>` : ''}
+      </div>
+    `).join('');
+
+    const memberTogglesHtml = agentsData.map(a => {
+      const selected = room.memberIds.includes(a.id);
+      return `
+        <span class="member-toggle ${selected ? 'selected' : ''}" onclick="toggleRoomMember('${a.id}')">
+          ${selected ? '✓ ' : '+ '}${escapeHtml(a.nickname)}
+        </span>
+      `;
+    }).join('');
+
+    const messagesHtml = room.messages.length === 0
+      ? `<div style="color:#64748b;font-size:12px;text-align:center;padding:24px;">暂无消息，输入内容并点击“发送测试”或“模拟回复”开始测试。</div>`
+      : room.messages.map(m => {
+          if (m.senderType === 'user') {
+            return `
+              <div class="msg-bubble msg-user">
+                <div class="msg-meta"><span>你</span><span>${escapeHtml(m.time)}</span></div>
+                <div>${escapeHtml(m.text)}</div>
+              </div>
+            `;
+          }
+          if (m.senderType === 'system') {
+            return `<div style="font-size:11px;color:#64748b;text-align:center;">[${escapeHtml(m.time)}] ${escapeHtml(m.text)}</div>`;
+          }
+          return `
+            <div class="msg-bubble msg-agent">
+              <div class="msg-meta">
+                <strong>${escapeHtml(m.senderName)}</strong>
+                <span style="color:#64748b;">${escapeHtml(m.role || '')} · ${escapeHtml(m.modelId || '')}</span>
+                <span>${escapeHtml(m.time)}</span>
+              </div>
+              <div>${escapeHtml(m.text)}</div>
+            </div>
+          `;
+        }).join('');
+
+    return `
+      <div class="chat-layout">
+        <!-- 左侧：聊天室列表与新建 -->
+        <div class="room-sidebar">
+          <div class="section-title"><span>聊天室列表</span></div>
+          <div style="display:flex;gap:6px;">
+            <input class="form-input" id="newRoomNameInput" style="flex:1;padding:5px 8px;font-size:12px;" placeholder="新聊天室名称" onkeydown="if(event.key==='Enter') createRoom()">
+            <button class="btn btn-primary" style="padding:5px 10px;" onclick="createRoom()">新建</button>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            ${roomListHtml}
+          </div>
+        </div>
+
+        <!-- 右侧：当前聊天室输出与测试 -->
+        <div class="chat-main">
+          <div class="chat-header">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <strong style="font-size:15px;color:#f8fafc;">${escapeHtml(room.name)}</strong>
+                <button class="btn" style="padding:3px 8px;" onclick="renameRoom()">重命名</button>
+              </div>
+              <button class="btn" style="padding:3px 8px;" onclick="clearRoomMessages()">清空记录</button>
+            </div>
+            <div class="member-selector">
+              <span style="font-size:12px;color:#94a3b8;">参与 Agent：</span>
+              ${memberTogglesHtml}
+            </div>
+          </div>
+
+          <div class="chat-messages" id="chatMessagesBox">${messagesHtml}</div>
+
+          <div class="chat-input-box">
+            <input class="form-input" id="chatInput" style="flex:1;min-width:180px;" placeholder="输入测试指令，例如：分析当前 BTC 波动与风险..." onkeydown="if(event.key==='Enter' && !sendingChat) sendChatMessage(false)">
+            <button class="btn btn-primary" onclick="sendChatMessage(false)" ${sendingChat ? 'disabled' : ''}>
+              ${sendingChat ? '输出中...' : '发送测试'}
+            </button>
+            <button class="btn" onclick="sendChatMessage(true)" ${sendingChat ? 'disabled' : ''}>
+              模拟回复
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function createRoom() {
+    const input = document.getElementById('newRoomNameInput');
+    const name = (input && input.value.trim()) || `聊天室 ${chatRooms.length + 1}`;
+    const newRoom = {
+      id: 'room_' + Date.now(),
+      name,
+      memberIds: agentsData.slice(0, 2).map(a => a.id),
+      messages: [
+        { senderType: 'system', senderName: '系统', text: `已创建聊天室「${name}」`, time: getNowTime() }
+      ]
+    };
+    chatRooms.push(newRoom);
+    activeRoomId = newRoom.id;
+    saveRooms();
+    renderWorkspace();
+  }
+
+  function selectRoom(id) {
+    activeRoomId = id;
+    renderWorkspace();
+    scrollChatBottom();
+  }
+
+  function deleteRoom(event, id) {
+    event.stopPropagation();
+    if (chatRooms.length <= 1) return;
+    chatRooms = chatRooms.filter(r => r.id !== id);
+    if (activeRoomId === id) activeRoomId = chatRooms[0].id;
+    saveRooms();
+    renderWorkspace();
+  }
+
+  function renameRoom() {
+    const room = getActiveRoom();
+    const nextName = prompt('输入新的聊天室名称：', room.name);
+    if (nextName && nextName.trim()) {
+      room.name = nextName.trim();
+      saveRooms();
+      renderWorkspace();
+    }
+  }
+
+  function clearRoomMessages() {
+    const room = getActiveRoom();
+    room.messages = [];
+    saveRooms();
+    renderWorkspace();
+  }
+
+  function toggleRoomMember(agentId) {
+    const room = getActiveRoom();
+    if (room.memberIds.includes(agentId)) {
+      room.memberIds = room.memberIds.filter(id => id !== agentId);
+    } else {
+      room.memberIds.push(agentId);
+    }
+    saveRooms();
+    renderWorkspace();
+  }
+
+  function scrollChatBottom() {
+    setTimeout(() => {
+      const box = document.getElementById('chatMessagesBox');
+      if (box) box.scrollTop = box.scrollHeight;
+    }, 30);
+  }
+
+  // 单 Agent 请求函数（供聊天室与“模式选择”单次测试共用）
+  async function callSingleAgent(agent, userText) {
+    const api = agent.apiConfig;
+    if (!api.apiKey || !api.apiKey.trim()) {
+      throw new Error(`Agent「${agent.nickname}」尚未配置 API Key（请前往“模式选择”填写）`);
+    }
+    if (!api.modelId || !api.modelId.trim()) {
+      throw new Error(`Agent「${agent.nickname}」尚未配置 Model ID`);
+    }
+
+    const baseUrl = api.baseUrl.replace(/\/+$/, '');
+    const skillText = agent.skills && agent.skills.length
+      ? `\n已挂载 Skills：${agent.skills.join('、')}`
+      : '';
+    const fullSystem = `${agent.systemPrompt || ''}${skillText}`.trim();
+
+    if (api.provider === 'anthropic') {
+      const res = await fetch(baseUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': api.apiKey.trim(),
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: api.modelId.trim(),
+          max_tokens: 350,
+          temperature: api.temperature,
+          system: fullSystem,
+          messages: [{ role: 'user', content: userText }]
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || `HTTP ${res.status}`);
+      return (data.content || []).map(c => c.text || '').join('\n') || JSON.stringify(data);
+    }
+
+    if (api.provider === 'gemini') {
+      const url = `${baseUrl}/models/${encodeURIComponent(api.modelId.trim())}:generateContent?key=${encodeURIComponent(api.apiKey.trim())}`;
+      const body = {
+        contents: [{ role: 'user', parts: [{ text: userText }] }],
+        generationConfig: { temperature: api.temperature, maxOutputTokens: 350 }
+      };
+      if (fullSystem) body.systemInstruction = { parts: [{ text: fullSystem }] };
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || `HTTP ${res.status}`);
+      return data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('\n') || JSON.stringify(data);
+    }
+
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${api.apiKey.trim()}`
+    };
+    if (api.provider === 'openrouter') {
+      headers['HTTP-Referer'] = window.location.origin;
+    }
+    const messages = [];
+    if (fullSystem) messages.push({ role: 'system', content: fullSystem });
+    messages.push({ role: 'user', content: userText });
+
+    const res = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        model: api.modelId.trim(),
+        temperature: api.temperature,
+        max_tokens: 350,
+        messages
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error?.message || `HTTP ${res.status}`);
+    return data.choices?.[0]?.message?.content || JSON.stringify(data);
+  }
+
+  async function sendChatMessage(isMock) {
+    const inputEl = document.getElementById('chatInput');
+    const text = (inputEl && inputEl.value.trim()) || '请结合你的角色与技能，对当前行情给出一条简短评估。';
+    const room = getActiveRoom();
+
+    if (room.memberIds.length === 0) {
+      alert('请先在上方勾选至少 1 位参与聊天的 Agent');
+      return;
+    }
+
+    room.messages.push({
+      senderType: 'user',
+      senderName: '你',
+      text,
+      time: getNowTime()
+    });
+    if (inputEl) inputEl.value = '';
+    saveRooms();
+    renderWorkspace();
+    scrollChatBottom();
+
+    sendingChat = true;
+    renderWorkspace();
+
+    const members = agentsData.filter(a => room.memberIds.includes(a.id));
+    for (const agent of members) {
+      if (isMock) {
+        const skillStr = agent.skills.length ? `（挂载技能：${agent.skills.join('、')}）` : '';
+        room.messages.push({
+          senderType: 'agent',
+          senderName: `${agent.nickname} [模拟]`,
+          role: agent.role,
+          modelId: agent.apiConfig.modelId,
+          text: `收到指令「${text}」${skillStr}。当前以【${agent.role}】视角测试输出：${agent.description || '已准备就绪，等待真实 API 接入。'}`,
+          time: getNowTime()
+        });
+      } else {
+        try {
+          const reply = await callSingleAgent(agent, text);
+          room.messages.push({
+            senderType: 'agent',
+            senderName: agent.nickname,
+            role: agent.role,
+            modelId: agent.apiConfig.modelId,
+            text: reply,
+            time: getNowTime()
+          });
+        } catch (err) {
+          room.messages.push({
+            senderType: 'agent',
+            senderName: `${agent.nickname} [错误]`,
+            role: agent.role,
+            modelId: agent.apiConfig.modelId,
+            text: `调用失败：${err.message}`,
+            time: getNowTime()
+          });
+        }
+      }
+      saveRooms();
+      renderWorkspace();
+      scrollChatBottom();
+    }
+
+    sendingChat = false;
+    renderWorkspace();
+    scrollChatBottom();
+  }
+
   function renderWorkspace() {
     const ws = document.getElementById('workspace');
     const tab = openTabs.find(t => t.key === activeTabKey) || PINNED_TAB;
+
+    if (tab.category === '实时聊天') {
+      ws.innerHTML = renderChatWorkspace();
+      scrollChatBottom();
+      return;
+    }
 
     if (tab.category === '模式选择') {
       const agent = getSelectedAgent();
@@ -750,7 +1241,6 @@
               </label>
             </div>
 
-            <!-- 基础信息 -->
             <div class="config-grid">
               <div class="form-group">
                 <label class="form-label">昵称</label>
@@ -766,7 +1256,6 @@
               </div>
             </div>
 
-            <!-- 独立大模型接口接入区 -->
             <div class="section-box">
               <div class="section-title">
                 <span>🔌 大模型接口接入设置（当前 Agent 独享）</span>
@@ -812,7 +1301,6 @@
               ${agent.testResult ? `<div class="test-output">${escapeHtml(agent.testResult)}</div>` : ''}
             </div>
 
-            <!-- 描述与提示词 -->
             <div class="form-group">
               <label class="form-label">描述</label>
               <textarea class="form-textarea" oninput="updateAgent('description', this.value)">${escapeHtml(agent.description)}</textarea>
@@ -823,7 +1311,6 @@
               <textarea class="form-textarea prompt-textarea" oninput="updateAgent('systemPrompt', this.value)">${escapeHtml(agent.systemPrompt)}</textarea>
             </div>
 
-            <!-- Skill -->
             <div class="form-group">
               <label class="form-label">Skill</label>
               <div class="skill-tags">${skillChips}</div>
@@ -935,99 +1422,18 @@
     renderWorkspace();
   }
 
-  // 前端直接测试当前 Agent 的模型接口
   async function testAgentConnection() {
     const agent = getSelectedAgent();
-    const api = agent.apiConfig;
     const userMsgEl = document.getElementById('testPromptInput');
     const userMsg = (userMsgEl && userMsgEl.value.trim()) || '你好，请简短回复收到。';
-
-    if (!api.apiKey.trim()) {
-      agent.testResult = '❌ 请先填写 API Key';
-      saveAgents();
-      renderWorkspace();
-      return;
-    }
-    if (!api.modelId.trim()) {
-      agent.testResult = '❌ 请先填写 Model ID';
-      saveAgents();
-      renderWorkspace();
-      return;
-    }
 
     testingAgentId = agent.id;
     agent.testResult = '⏳ 正在发送请求...';
     renderWorkspace();
 
     try {
-      let replyText = '';
-      const baseUrl = api.baseUrl.replace(/\/+$/, '');
-
-      if (api.provider === 'anthropic') {
-        const res = await fetch(baseUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': api.apiKey.trim(),
-            'anthropic-version': '2023-06-01'
-          },
-          body: JSON.stringify({
-            model: api.modelId.trim(),
-            max_tokens: 300,
-            temperature: api.temperature,
-            system: agent.systemPrompt || '',
-            messages: [{ role: 'user', content: userMsg }]
-          })
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error?.message || `HTTP ${res.status}`);
-        replyText = (data.content || []).map(c => c.text || '').join('\n') || JSON.stringify(data);
-      } else if (api.provider === 'gemini') {
-        const url = `${baseUrl}/models/${encodeURIComponent(api.modelId.trim())}:generateContent?key=${encodeURIComponent(api.apiKey.trim())}`;
-        const body = {
-          contents: [{ role: 'user', parts: [{ text: userMsg }] }],
-          generationConfig: { temperature: api.temperature, maxOutputTokens: 300 }
-        };
-        if (agent.systemPrompt) {
-          body.systemInstruction = { parts: [{ text: agent.systemPrompt }] };
-        }
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error?.message || `HTTP ${res.status}`);
-        replyText = data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('\n') || JSON.stringify(data);
-      } else {
-        // OpenAI 兼容接口 & OpenRouter
-        const headers = {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${api.apiKey.trim()}`
-        };
-        if (api.provider === 'openrouter') {
-          headers['HTTP-Referer'] = window.location.origin;
-        }
-        const messages = [];
-        if (agent.systemPrompt) messages.push({ role: 'system', content: agent.systemPrompt });
-        messages.push({ role: 'user', content: userMsg });
-
-        const res = await fetch(`${baseUrl}/chat/completions`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            model: api.modelId.trim(),
-            temperature: api.temperature,
-            max_tokens: 300,
-            messages
-          })
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error?.message || `HTTP ${res.status}`);
-        replyText = data.choices?.[0]?.message?.content || JSON.stringify(data);
-      }
-
-      agent.testResult = `✅ 调用成功（${api.modelId}）：\n${replyText}`;
+      const replyText = await callSingleAgent(agent, userMsg);
+      agent.testResult = `✅ 调用成功（${agent.apiConfig.modelId}）：\n${replyText}`;
     } catch (err) {
       agent.testResult = `❌ 调用失败：${err.message}\n提示：若接口服务未允许浏览器直接跨域（CORS），后续接入后端中转即可解决。`;
     } finally {
@@ -1037,21 +1443,17 @@
     }
   }
 
-  // 实时秒级时钟
   function updateClock() {
-    const now = new Date();
-    document.getElementById('clock').innerText = now.toTimeString().split(' ')[0];
+    document.getElementById('clock').innerText = getNowTime();
   }
   setInterval(updateClock, 1000);
   updateClock();
 
-  // 战歌按钮切换
   const playBtn = document.getElementById('playBtn');
   playBtn.addEventListener('click', () => {
     playBtn.innerText = playBtn.innerText === '▶' ? '❚❚' : '▶';
   });
 
-  // 初始化
   renderSidebar();
   renderTopTabs();
   renderWorkspace();
