@@ -332,6 +332,40 @@
     flex-wrap: wrap;
     gap: 8px;
   }
+
+  /* 模型状态指示灯 */
+  .model-status-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: bold;
+    color: #cbd5e1;
+  }
+  .status-lamp {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+  }
+  .status-lamp.green {
+    background-color: #10b981;
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.95);
+  }
+  .status-lamp.yellow {
+    background-color: #f59e0b;
+    box-shadow: 0 0 8px rgba(245, 158, 11, 0.9);
+  }
+  .status-lamp.checking {
+    background-color: #f59e0b;
+    animation: pulseLamp 0.9s infinite alternate;
+  }
+  @keyframes pulseLamp {
+    from { opacity: 0.4; }
+    to { opacity: 1; }
+  }
+
   .config-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -381,18 +415,6 @@
     border: 1px solid #38bdf8;
     color: #e0f2fe;
     cursor: pointer;
-  }
-  .test-output {
-    background-color: #070d15;
-    border: 1px solid #1e2f44;
-    border-radius: 6px;
-    padding: 8px 10px;
-    font-size: 12px;
-    color: #cbd5e1;
-    white-space: pre-wrap;
-    word-break: break-word;
-    max-height: 180px;
-    overflow-y: auto;
   }
 
   .chat-layout {
@@ -607,7 +629,7 @@
     gemini: {
       label: 'Google Gemini 接口',
       defaultBaseUrl: 'https://generativelanguage.googleapis.com/v1beta',
-      defaultModelId: 'gemini-2.5-flash',
+      defaultModelId: 'gemini-3.8-flash',
       baseUrlHint: '默认 https://generativelanguage.googleapis.com/v1beta'
     }
   };
@@ -625,7 +647,8 @@
       id,
       nickname,
       role,
-      enabled: true,
+      enabled: false,
+      modelStatus: 'yellow', // 'green' | 'yellow' | 'checking'
       description,
       systemPrompt,
       skills,
@@ -635,8 +658,7 @@
         apiKey: '',
         modelId: modelId || preset.defaultModelId,
         temperature: 0.7
-      },
-      testResult: ''
+      }
     };
   }
 
@@ -671,7 +693,7 @@
     ),
     makeAgent(
       'zhongjishanguang', '终极闪光', '复盘更新员（Updater）',
-      'gemini', 'gemini-2.5-flash',
+      'gemini', 'gemini-3.8-flash',
       '复盘交易结果并优化提示词与策略参数。',
       '你是复盘更新员（终极闪光），总结盈亏归因并提出参数优化。',
       ['交易盈亏归因', 'Prompt迭代建议']
@@ -687,7 +709,6 @@
   let agentsData = loadAgents();
   let selectedAgentId = agentsData[0].id;
   let showApiKeyPlain = false;
-  let testingAgentId = null;
 
   let chatRooms = loadRooms();
   let activeRoomId = chatRooms[0].id;
@@ -701,8 +722,9 @@
         if (Array.isArray(parsed) && parsed.length > 0) {
           return parsed.map(a => ({
             ...a,
+            enabled: Boolean(a.enabled),
+            modelStatus: a.modelStatus === 'green' ? 'green' : 'yellow',
             skills: Array.isArray(a.skills) ? a.skills : [],
-            testResult: a.testResult || '',
             apiConfig: {
               provider: a.apiConfig?.provider || 'openai_compat',
               baseUrl: a.apiConfig?.baseUrl || 'https://api.openai.com/v1',
@@ -732,7 +754,7 @@
           {
             senderType: 'system',
             senderName: '系统',
-            text: '聊天室已创建。可在上方勾选参与的 Agent，输入消息测试真实接口或点击“模拟回复”测试流程。',
+            text: '聊天室已创建。启用 Agent 后将自动检测模型并发送报到状态。',
             time: getNowTime()
           }
         ]
@@ -779,6 +801,23 @@
 
   function getActiveRoom() {
     return chatRooms.find(r => r.id === activeRoomId) || chatRooms[0];
+  }
+
+  function pushAgentStatusToRooms(agent, statusText) {
+    const targetRooms = chatRooms.filter(r => r.memberIds.includes(agent.id));
+    const roomsToNotify = targetRooms.length > 0 ? targetRooms : [chatRooms[0]];
+    const now = getNowTime();
+    roomsToNotify.forEach(room => {
+      room.messages.push({
+        senderType: 'agent',
+        senderName: agent.nickname,
+        role: agent.role,
+        modelId: agent.apiConfig.modelId,
+        text: statusText,
+        time: now
+      });
+    });
+    saveRooms();
   }
 
   function renderSidebar() {
@@ -1035,14 +1074,14 @@
     }, 30);
   }
 
-  async function callSingleAgent(agent, userText) {
+  async function callSingleAgent(agent, userText, maxTokens = 350) {
     const api = agent.apiConfig;
     const cleanKey = String(api.apiKey || '').trim();
     const cleanModel = String(api.modelId || '').trim();
     const baseUrl = normalizeBaseUrl(api.baseUrl);
 
     if (!cleanKey) {
-      throw new Error(`Agent「${agent.nickname}」尚未配置 API Key（请前往“模式选择”填写）`);
+      throw new Error(`Agent「${agent.nickname}」尚未配置 API Key`);
     }
     if (!cleanModel) {
       throw new Error(`Agent「${agent.nickname}」尚未配置 Model ID`);
@@ -1066,7 +1105,7 @@
         },
         body: JSON.stringify({
           model: cleanModel,
-          max_tokens: 350,
+          max_tokens: maxTokens,
           temperature: api.temperature,
           system: fullSystem,
           messages: [{ role: 'user', content: userText }]
@@ -1079,29 +1118,19 @@
 
     if (api.provider === 'gemini') {
       const url = `${baseUrl}/models/${encodeURIComponent(cleanModel)}:generateContent?key=${encodeURIComponent(cleanKey)}`;
-      const safeUrl = `${baseUrl}/models/${encodeURIComponent(cleanModel)}:generateContent?key=AIza***`;
       const body = {
         contents: [{ role: 'user', parts: [{ text: userText }] }],
-        generationConfig: { temperature: api.temperature, maxOutputTokens: 350 }
+        generationConfig: { temperature: api.temperature, maxOutputTokens: maxTokens }
       };
       if (fullSystem) body.systemInstruction = { parts: [{ text: fullSystem }] };
-      try {
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(`${data.error?.message || `HTTP ${res.status}`}\n请求路径：${safeUrl}`);
-        }
-        return data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('\n') || JSON.stringify(data);
-      } catch (err) {
-        if (/Load failed|Failed to fetch/i.test(err.message)) {
-          throw new Error(`${err.message}\n请求路径：${safeUrl}`);
-        }
-        throw err;
-      }
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || `HTTP ${res.status}`);
+      return data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('\n') || JSON.stringify(data);
     }
 
     const headers = {
@@ -1121,7 +1150,7 @@
       body: JSON.stringify({
         model: cleanModel,
         temperature: api.temperature,
-        max_tokens: 350,
+        max_tokens: maxTokens,
         messages
       })
     });
@@ -1169,6 +1198,8 @@
       } else {
         try {
           const reply = await callSingleAgent(agent, text);
+          agent.modelStatus = 'green';
+          saveAgents();
           room.messages.push({
             senderType: 'agent',
             senderName: agent.nickname,
@@ -1178,6 +1209,8 @@
             time: getNowTime()
           });
         } catch (err) {
+          agent.modelStatus = 'yellow';
+          saveAgents();
           room.messages.push({
             senderType: 'agent',
             senderName: `${agent.nickname} [错误]`,
@@ -1215,7 +1248,10 @@
 
       const cards = agentsData.map(a => `
         <div class="agent-card ${a.id === agent.id ? 'active' : ''}" onclick="selectAgent('${a.id}')">
-          <div style="font-size:13px;font-weight:bold;color:#f8fafc;">${escapeHtml(a.nickname)}</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
+            <span style="font-size:13px;font-weight:bold;color:#f8fafc;">${escapeHtml(a.nickname)}</span>
+            <span class="status-lamp ${a.modelStatus === 'green' ? 'green' : 'yellow'}" title="${a.modelStatus === 'green' ? '模型对接正常' : '模型异常或未启用'}"></span>
+          </div>
           <div style="font-size:11px;color:#38bdf8;margin-top:2px;">${escapeHtml(a.role)}</div>
           <div style="font-size:11px;color:#64748b;margin-top:2px;">${escapeHtml(a.apiConfig.modelId || '未填模型ID')}</div>
         </div>
@@ -1224,6 +1260,10 @@
       const skillChips = agent.skills.map((s, i) => `
         <span class="skill-chip" title="点击移除" onclick="removeSkill(${i})">⚡ ${escapeHtml(s)} ×</span>
       `).join('');
+
+      const lampClass = agent.modelStatus === 'green'
+        ? 'green'
+        : (agent.modelStatus === 'checking' ? 'checking' : 'yellow');
 
       ws.innerHTML = `
         <div class="agent-layout">
@@ -1238,8 +1278,8 @@
           <div class="agent-config-panel">
             <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #1e2d3d;padding-bottom:8px;">
               <strong style="font-size:15px;color:#f8fafc;">${escapeHtml(agent.nickname)} · 独立配置与模型接口</strong>
-              <label style="font-size:12px;cursor:pointer;">
-                <input type="checkbox" ${agent.enabled ? 'checked' : ''} onchange="updateAgent('enabled', this.checked)"> 启用
+              <label style="font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;">
+                <input type="checkbox" ${agent.enabled ? 'checked' : ''} onchange="onToggleAgentEnabled(this.checked)"> 启用
               </label>
             </div>
 
@@ -1261,9 +1301,10 @@
             <div class="section-box">
               <div class="section-title">
                 <span>🔌 大模型接口接入设置（当前 Agent 独享）</span>
-                <button class="btn btn-primary" onclick="testAgentConnection()" ${testingAgentId === agent.id ? 'disabled' : ''}>
-                  ${testingAgentId === agent.id ? '请求中...' : '测试连接 / 试跑一句'}
-                </button>
+                <span class="model-status-indicator">
+                  <span>状态</span>
+                  <span class="status-lamp ${lampClass}"></span>
+                </span>
               </div>
 
               <div class="config-grid">
@@ -1277,7 +1318,7 @@
                 </div>
                 <div class="form-group">
                   <label class="form-label">真实 Model ID</label>
-                  <input class="form-input" value="${escapeHtml(api.modelId)}" placeholder="例如 gemini-2.5-flash" oninput="updateApiConfig('modelId', this.value)">
+                  <input class="form-input" value="${escapeHtml(api.modelId)}" placeholder="例如 gemini-3.8-flash" oninput="updateApiConfig('modelId', this.value)">
                 </div>
               </div>
 
@@ -1294,13 +1335,6 @@
                   <input class="form-input" type="${showApiKeyPlain ? 'text' : 'password'}" value="${escapeHtml(api.apiKey)}" placeholder="粘贴你的 API Key" oninput="updateApiConfig('apiKey', this.value)">
                 </div>
               </div>
-
-              <div class="form-group">
-                <label class="form-label">试跑测试消息</label>
-                <input class="form-input" id="testPromptInput" value="请用你的角色身份简短介绍自己，并给出一条简短提示。">
-              </div>
-
-              ${agent.testResult ? `<div class="test-output">${escapeHtml(agent.testResult)}</div>` : ''}
             </div>
 
             <div class="form-group">
@@ -1362,9 +1396,38 @@
     }
   }
 
+  async function onToggleAgentEnabled(isChecked) {
+    const agent = getSelectedAgent();
+    agent.enabled = isChecked;
+
+    if (!isChecked) {
+      agent.modelStatus = 'yellow';
+      saveAgents();
+      renderWorkspace();
+      return;
+    }
+
+    agent.modelStatus = 'checking';
+    saveAgents();
+    renderWorkspace();
+
+    try {
+      await callSingleAgent(agent, '在线连通性自检，请仅回复：OK', 16);
+      agent.modelStatus = 'green';
+      pushAgentStatusToRooms(agent, `${agent.nickname}—归位`);
+    } catch (err) {
+      agent.modelStatus = 'yellow';
+      pushAgentStatusToRooms(agent, `${agent.nickname}—迷失`);
+    } finally {
+      saveAgents();
+      renderWorkspace();
+    }
+  }
+
   function updateApiConfig(field, val) {
     const agent = getSelectedAgent();
     agent.apiConfig[field] = val;
+    agent.modelStatus = 'yellow';
     saveAgents();
     if (field === 'modelId') {
       renderWorkspace();
@@ -1377,6 +1440,7 @@
     agent.apiConfig.provider = newProvider;
     agent.apiConfig.baseUrl = preset.defaultBaseUrl;
     agent.apiConfig.modelId = preset.defaultModelId;
+    agent.modelStatus = 'yellow';
     saveAgents();
     renderWorkspace();
   }
@@ -1421,27 +1485,6 @@
     selectedAgentId = newAgent.id;
     saveAgents();
     renderWorkspace();
-  }
-
-  async function testAgentConnection() {
-    const agent = getSelectedAgent();
-    const userMsgEl = document.getElementById('testPromptInput');
-    const userMsg = (userMsgEl && userMsgEl.value.trim()) || '你好，请简短回复收到。';
-
-    testingAgentId = agent.id;
-    agent.testResult = '⏳ 正在发送请求...';
-    renderWorkspace();
-
-    try {
-      const replyText = await callSingleAgent(agent, userMsg);
-      agent.testResult = `✅ 调用成功（${agent.apiConfig.modelId}）：\n${replyText}`;
-    } catch (err) {
-      agent.testResult = `❌ 调用失败：${err.message}\n提示：若接口服务未允许浏览器直接跨域（CORS）或本地网络直连受阻，可改由后端中转请求。`;
-    } finally {
-      testingAgentId = null;
-      saveAgents();
-      renderWorkspace();
-    }
   }
 
   function updateClock() {
