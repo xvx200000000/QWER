@@ -334,7 +334,6 @@
     gap: 8px;
   }
 
-  /* 圆形双箭头刷新按钮 + 状态灯 */
   .model-status-indicator {
     display: inline-flex;
     align-items: center;
@@ -593,6 +592,47 @@
     color: #cbd5e1;
   }
 
+  /* 网页正中央 2 秒自动消失提示弹窗 */
+  .center-toast-overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    z-index: 9999;
+    pointer-events: none;
+  }
+  .center-toast-box {
+    max-width: 420px;
+    width: 100%;
+    background-color: rgba(15, 25, 38, 0.96);
+    border: 1px solid #f59e0b;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.65);
+    border-radius: 10px;
+    padding: 14px 16px;
+    color: #f8fafc;
+    font-size: 12px;
+    line-height: 1.55;
+  }
+  .center-toast-title {
+    font-size: 13px;
+    font-weight: bold;
+    color: #fbbf24;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .center-toast-line {
+    margin-top: 4px;
+    color: #e2e8f0;
+  }
+  .center-toast-label {
+    color: #93c5fd;
+    font-weight: bold;
+  }
+
   @media (max-width: 768px) {
     .clock-box { font-size: 16px; }
     .menu-parent { font-size: 13px; padding: 9px 6px; }
@@ -684,7 +724,7 @@
       id,
       nickname,
       role,
-      modelStatus: 'yellow', // 'green' | 'yellow'
+      modelStatus: 'yellow',
       description,
       systemPrompt,
       skills,
@@ -736,7 +776,6 @@
     )
   ];
 
-  // 默认模式预设1、模式预设2均默认纳入全部 Agent，可按需勾选增减
   const ALL_DEFAULT_IDS = DEFAULT_AGENTS.map(a => a.id);
   const DEFAULT_MODES = [
     {
@@ -752,9 +791,9 @@
   ];
 
   const STORAGE_KEYS = {
-    AGENTS: 'MULTI_AGENT_V3_AGENTS',
-    MODES: 'MULTI_AGENT_V3_MODES',
-    ROOMS: 'MULTI_AGENT_V3_ROOMS'
+    AGENTS: 'MULTI_AGENT_V4_AGENTS',
+    MODES: 'MULTI_AGENT_V4_MODES',
+    ROOMS: 'MULTI_AGENT_V4_ROOMS'
   };
 
   let agentsData = loadAgents();
@@ -773,6 +812,99 @@
 
   let activeRoomId = GROUP_ROOM_ID;
   let sendingChat = false;
+  let toastTimer = null;
+
+  function showCenterFailureToast(agent, err) {
+    const old = document.getElementById('centerFailureToast');
+    if (old) old.remove();
+    if (toastTimer) {
+      clearTimeout(toastTimer);
+      toastTimer = null;
+    }
+
+    const diag = diagnoseFailure(agent, err);
+    const overlay = document.createElement('div');
+    overlay.id = 'centerFailureToast';
+    overlay.className = 'center-toast-overlay';
+    overlay.innerHTML = `
+      <div class="center-toast-box">
+        <div class="center-toast-title">⚠️ ${escapeHtml(agent.nickname)} 启动未成功</div>
+        <div class="center-toast-line"><span class="center-toast-label">原因：</span>${escapeHtml(diag.why)}</div>
+        <div class="center-toast-line"><span class="center-toast-label">错在：</span>${escapeHtml(diag.where)}</div>
+        <div class="center-toast-line"><span class="center-toast-label">建议：</span>${escapeHtml(diag.how)}</div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    toastTimer = setTimeout(() => {
+      const el = document.getElementById('centerFailureToast');
+      if (el) el.remove();
+      toastTimer = null;
+    }, 2000);
+  }
+
+  function diagnoseFailure(agent, err) {
+    const api = agent.apiConfig || {};
+    const key = String(api.apiKey || '').trim();
+    const model = String(api.modelId || '').trim();
+    const base = normalizeBaseUrl(api.baseUrl);
+    const msg = String(err && err.message ? err.message : '');
+
+    if (!key) {
+      return {
+        why: '缺少 API Key，无法通过接口鉴权。',
+        where: '当前 Agent 的 API Key 输入框为空。',
+        how: '填入有效的 API Key 后再点击刷新。'
+      };
+    }
+    if (!model) {
+      return {
+        why: '缺少真实 Model ID，接口无法定位目标模型。',
+        where: '真实 Model ID 输入框为空。',
+        how: '填写可用模型名（如 gemini-3.8-flash）后重试。'
+      };
+    }
+    if (!base) {
+      return {
+        why: '接口地址 Base URL 为空或无效。',
+        where: 'Base URL 配置项。',
+        how: '填入合法接口根地址后重试。'
+      };
+    }
+    if (/high demand|503|429|quota|overloaded/i.test(msg)) {
+      return {
+        why: '模型服务端当前高负载或触发频控/配额限制。',
+        where: `服务端拒绝了 ${model} 的本次请求。`,
+        how: '稍等片刻后手动点击刷新，或切换可用模型。'
+      };
+    }
+    if (/api key|unauthorized|401|403|permission/i.test(msg)) {
+      return {
+        why: '密钥无效、无权限访问该模型或账号受限。',
+        where: 'API Key 或模型访问权限。',
+        how: '核对 Key 是否正确且具备该模型权限。'
+      };
+    }
+    if (/model|not found|404|unexpected model/i.test(msg)) {
+      return {
+        why: '模型名称不可用或接口路径不匹配。',
+        where: `Model ID「${model}」或 Base URL「${base}」。`,
+        how: '检查模型名与接口版本地址是否匹配。'
+      };
+    }
+    if (/load failed|failed to fetch|networkerror|timeout|cors/i.test(msg)) {
+      return {
+        why: '浏览器直连请求被中断、超时或网络/跨域受阻。',
+        where: `前端直连「${base}」的网络链路。`,
+        how: '检查网络或改由后端中转接口请求。'
+      };
+    }
+    return {
+      why: msg || '本次连接请求未成功返回。',
+      where: `${model} 接口调用过程。`,
+      how: '检查配置参数后手动点刷新重试。'
+    };
+  }
 
   function loadAgents() {
     try {
@@ -1540,7 +1672,7 @@
                 <span class="model-status-indicator">
                   <button
                     class="refresh-circle-btn ${isSpinning ? 'spinning' : ''}"
-                    title="刷新模型状态（绿灯正常 / 黄灯异常）"
+                    title="单次刷新模型状态（绿灯正常 / 黄灯异常）"
                     onclick="refreshAgentModelStatus()"
                     ${isSpinning ? 'disabled' : ''}
                   >
@@ -1644,8 +1776,11 @@
     }
   }
 
+  // 单次状态检测：成功亮绿灯；失败亮黄灯并在网页正中央弹出 2 秒诊断提示
   async function refreshAgentModelStatus() {
     const agent = getSelectedAgent();
+    if (checkingAgentId) return;
+
     checkingAgentId = agent.id;
     renderWorkspace();
 
@@ -1654,6 +1789,7 @@
       agent.modelStatus = 'green';
     } catch (err) {
       agent.modelStatus = 'yellow';
+      showCenterFailureToast(agent, err);
     } finally {
       checkingAgentId = null;
       saveAgents();
