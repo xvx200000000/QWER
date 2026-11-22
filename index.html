@@ -15,7 +15,6 @@
     overflow: hidden;
   }
 
-  /* 左侧控制面板：左右各留约1个字空间 */
   .sidebar {
     background-color: #0f1926;
     border-right: 1px solid #1e2d3d;
@@ -79,7 +78,6 @@
     color: #38bdf8;
   }
 
-  /* 细分选项列表 */
   .sub-menu-list {
     list-style: none;
     display: none;
@@ -111,7 +109,6 @@
     font-weight: bold;
   }
 
-  /* 右侧主区域 */
   .main-wrapper {
     flex: 1;
     display: flex;
@@ -120,7 +117,6 @@
     min-width: 0;
   }
 
-  /* 顶部栏 */
   .topbar {
     height: 68px;
     background-color: #0f1926;
@@ -166,7 +162,6 @@
     background: #38bdf8;
   }
 
-  /* 状态标签：上下排布且大小完全一致 */
   .status-group {
     display: flex;
     flex-direction: column;
@@ -195,7 +190,6 @@
     background-color: #10b981;
   }
 
-  /* 右侧内容顶部选项导航栏 */
   .tab-bar {
     height: 42px;
     background-color: #0d1724;
@@ -258,14 +252,12 @@
     color: #fca5a5;
   }
 
-  /* 主工作区 */
   .workspace {
     flex: 1;
     padding: 14px 18px;
     overflow-y: auto;
   }
 
-  /* 空白模块化框架区 */
   .wireframe-grid {
     height: 100%;
     min-height: 360px;
@@ -288,7 +280,6 @@
     border-radius: 6px;
   }
 
-  /* 模式选择细分项：Dify 风格独立 Agent 配置 */
   .agent-layout {
     display: grid;
     grid-template-columns: 220px 1fr;
@@ -400,11 +391,10 @@
     color: #cbd5e1;
     white-space: pre-wrap;
     word-break: break-word;
-    max-height: 150px;
+    max-height: 180px;
     overflow-y: auto;
   }
 
-  /* 实时聊天室样式 */
   .chat-layout {
     display: grid;
     grid-template-columns: 230px 1fr;
@@ -551,15 +541,12 @@
 </head>
 <body>
 
-  <!-- 左侧控制面板 -->
   <aside class="sidebar">
     <div class="clock-box" id="clock">00:00:00</div>
     <ul class="menu-list" id="sidebarMenu"></ul>
   </aside>
 
-  <!-- 右侧主区 -->
   <div class="main-wrapper">
-    <!-- 顶部栏 -->
     <header class="topbar">
       <div class="music-player">
         <button class="play-btn" id="playBtn">▶</button>
@@ -574,10 +561,7 @@
       </div>
     </header>
 
-    <!-- 右侧内容顶部选项导航栏（第一个永久固定为“账户状态”，不可关闭） -->
     <nav class="tab-bar" id="topTabBar"></nav>
-
-    <!-- 主内容区 -->
     <main class="workspace" id="workspace"></main>
   </div>
 
@@ -590,7 +574,6 @@
     pinned: true
   };
 
-  // “实时聊天”放在“行情洞察”下面
   const MENU_CONFIG = [
     { name: '行情洞察', icon: '📈', children: ['实时盘口', '资金流向', '链上异动'] },
     { name: '实时聊天', icon: '💬', children: ['Agent聊天室', '多Agent群聊', '单Agent测试'] },
@@ -628,6 +611,13 @@
       baseUrlHint: '默认 https://generativelanguage.googleapis.com/v1beta'
     }
   };
+
+  function normalizeBaseUrl(rawUrl) {
+    return String(rawUrl || '')
+      .trim()
+      .replace(/\/+$/, '')
+      .replace(/\/models$/i, '');
+  }
 
   function makeAgent(id, nickname, role, provider, modelId, description, systemPrompt, skills) {
     const preset = PROVIDER_PRESETS[provider] || PROVIDER_PRESETS.openai_compat;
@@ -887,7 +877,6 @@
     renderWorkspace();
   }
 
-  // 渲染“实时聊天”工作区
   function renderChatWorkspace() {
     const room = getActiveRoom();
     const roomListHtml = chatRooms.map(r => `
@@ -937,7 +926,6 @@
 
     return `
       <div class="chat-layout">
-        <!-- 左侧：聊天室列表与新建 -->
         <div class="room-sidebar">
           <div class="section-title"><span>聊天室列表</span></div>
           <div style="display:flex;gap:6px;">
@@ -949,7 +937,6 @@
           </div>
         </div>
 
-        <!-- 右侧：当前聊天室输出与测试 -->
         <div class="chat-main">
           <div class="chat-header">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
@@ -1048,17 +1035,22 @@
     }, 30);
   }
 
-  // 单 Agent 请求函数（供聊天室与“模式选择”单次测试共用）
   async function callSingleAgent(agent, userText) {
     const api = agent.apiConfig;
-    if (!api.apiKey || !api.apiKey.trim()) {
+    const cleanKey = String(api.apiKey || '').trim();
+    const cleanModel = String(api.modelId || '').trim();
+    const baseUrl = normalizeBaseUrl(api.baseUrl);
+
+    if (!cleanKey) {
       throw new Error(`Agent「${agent.nickname}」尚未配置 API Key（请前往“模式选择”填写）`);
     }
-    if (!api.modelId || !api.modelId.trim()) {
+    if (!cleanModel) {
       throw new Error(`Agent「${agent.nickname}」尚未配置 Model ID`);
     }
+    if (!baseUrl) {
+      throw new Error(`Agent「${agent.nickname}」尚未配置 Base URL`);
+    }
 
-    const baseUrl = api.baseUrl.replace(/\/+$/, '');
     const skillText = agent.skills && agent.skills.length
       ? `\n已挂载 Skills：${agent.skills.join('、')}`
       : '';
@@ -1069,11 +1061,11 @@
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': api.apiKey.trim(),
+          'x-api-key': cleanKey,
           'anthropic-version': '2023-06-01'
         },
         body: JSON.stringify({
-          model: api.modelId.trim(),
+          model: cleanModel,
           max_tokens: 350,
           temperature: api.temperature,
           system: fullSystem,
@@ -1086,25 +1078,35 @@
     }
 
     if (api.provider === 'gemini') {
-      const url = `${baseUrl}/models/${encodeURIComponent(api.modelId.trim())}:generateContent?key=${encodeURIComponent(api.apiKey.trim())}`;
+      const url = `${baseUrl}/models/${encodeURIComponent(cleanModel)}:generateContent?key=${encodeURIComponent(cleanKey)}`;
+      const safeUrl = `${baseUrl}/models/${encodeURIComponent(cleanModel)}:generateContent?key=AIza***`;
       const body = {
         contents: [{ role: 'user', parts: [{ text: userText }] }],
         generationConfig: { temperature: api.temperature, maxOutputTokens: 350 }
       };
       if (fullSystem) body.systemInstruction = { parts: [{ text: fullSystem }] };
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error?.message || `HTTP ${res.status}`);
-      return data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('\n') || JSON.stringify(data);
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(`${data.error?.message || `HTTP ${res.status}`}\n请求路径：${safeUrl}`);
+        }
+        return data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('\n') || JSON.stringify(data);
+      } catch (err) {
+        if (/Load failed|Failed to fetch/i.test(err.message)) {
+          throw new Error(`${err.message}\n请求路径：${safeUrl}`);
+        }
+        throw err;
+      }
     }
 
     const headers = {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${api.apiKey.trim()}`
+      'Authorization': `Bearer ${cleanKey}`
     };
     if (api.provider === 'openrouter') {
       headers['HTTP-Referer'] = window.location.origin;
@@ -1117,7 +1119,7 @@
       method: 'POST',
       headers,
       body: JSON.stringify({
-        model: api.modelId.trim(),
+        model: cleanModel,
         temperature: api.temperature,
         max_tokens: 350,
         messages
@@ -1275,7 +1277,7 @@
                 </div>
                 <div class="form-group">
                   <label class="form-label">真实 Model ID</label>
-                  <input class="form-input" value="${escapeHtml(api.modelId)}" placeholder="例如 gpt-4o-mini / deepseek-chat" oninput="updateApiConfig('modelId', this.value)">
+                  <input class="form-input" value="${escapeHtml(api.modelId)}" placeholder="例如 gemini-2.5-flash" oninput="updateApiConfig('modelId', this.value)">
                 </div>
               </div>
 
@@ -1325,7 +1327,6 @@
       return;
     }
 
-    // 其余栏目的内容区保持干净空白模块化框架
     ws.innerHTML = `
       <div class="wireframe-grid">
         <div class="wf-box" style="grid-template-columns: 1fr 2fr;">
@@ -1435,7 +1436,7 @@
       const replyText = await callSingleAgent(agent, userMsg);
       agent.testResult = `✅ 调用成功（${agent.apiConfig.modelId}）：\n${replyText}`;
     } catch (err) {
-      agent.testResult = `❌ 调用失败：${err.message}\n提示：若接口服务未允许浏览器直接跨域（CORS），后续接入后端中转即可解决。`;
+      agent.testResult = `❌ 调用失败：${err.message}\n提示：若接口服务未允许浏览器直接跨域（CORS）或本地网络直连受阻，可改由后端中转请求。`;
     } finally {
       testingAgentId = null;
       saveAgents();
