@@ -170,7 +170,8 @@
     flex-shrink: 0;
   }
   .status-badge {
-    width: 104px;
+    min-width: 104px;
+    padding: 0 10px;
     height: 24px;
     border-radius: 12px;
     font-size: 12px;
@@ -333,15 +334,45 @@
     gap: 8px;
   }
 
-  /* 模型状态指示灯 */
+  /* 圆形刷新箭头 + 状态灯 */
   .model-status-indicator {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     font-size: 12px;
     font-weight: bold;
     color: #cbd5e1;
   }
+  .refresh-circle-btn {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 1px solid #2b4563;
+    background-color: #132236;
+    color: #7dd3fc;
+    font-size: 14px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: 0.15s;
+  }
+  .refresh-circle-btn:hover:not(:disabled) {
+    border-color: #38bdf8;
+    color: #ffffff;
+    background-color: #192d47;
+  }
+  .refresh-circle-btn.spinning {
+    animation: spinCircle 0.8s linear infinite;
+    border-color: #f59e0b;
+    color: #fbbf24;
+  }
+  @keyframes spinCircle {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
   .status-lamp {
     width: 10px;
     height: 10px;
@@ -356,14 +387,6 @@
   .status-lamp.yellow {
     background-color: #f59e0b;
     box-shadow: 0 0 8px rgba(245, 158, 11, 0.9);
-  }
-  .status-lamp.checking {
-    background-color: #f59e0b;
-    animation: pulseLamp 0.9s infinite alternate;
-  }
-  @keyframes pulseLamp {
-    from { opacity: 0.4; }
-    to { opacity: 1; }
   }
 
   .config-grid {
@@ -464,27 +487,22 @@
     padding-bottom: 8px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
   }
-  .member-selector {
+  .room-scope-hint {
+    font-size: 12px;
+    color: #94a3b8;
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
     align-items: center;
   }
-  .member-toggle {
-    padding: 3px 9px;
+  .scope-tag {
+    padding: 2px 8px;
     border-radius: 999px;
-    font-size: 12px;
-    cursor: pointer;
-    border: 1px solid #263b54;
-    background-color: #132133;
-    color: #94a3b8;
-    user-select: none;
-  }
-  .member-toggle.selected {
-    border-color: #10b981;
-    background-color: rgba(16, 185, 129, 0.16);
+    font-size: 11px;
+    background-color: rgba(16, 185, 129, 0.14);
+    border: 1px solid rgba(16, 185, 129, 0.45);
     color: #a7f3d0;
   }
   .chat-messages {
@@ -552,6 +570,30 @@
     font-weight: bold;
   }
 
+  .generator-card {
+    background-color: #0f1a29;
+    border: 1px solid #1d2e42;
+    border-radius: 8px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    max-width: 780px;
+  }
+  .mode-pill-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .mode-pill-item {
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    background-color: #132133;
+    border: 1px solid #243952;
+    color: #cbd5e1;
+  }
+
   @media (max-width: 768px) {
     .clock-box { font-size: 16px; }
     .menu-parent { font-size: 13px; padding: 9px 6px; }
@@ -579,7 +621,7 @@
 
       <div class="status-group">
         <div class="status-badge"><span class="dot"></span>已连接</div>
-        <div class="status-badge" id="modeBadge"><span class="dot"></span>开启模式1</div>
+        <div class="status-badge" id="modeBadge"><span class="dot"></span>集团聊天</div>
       </div>
     </header>
 
@@ -596,16 +638,8 @@
     pinned: true
   };
 
-  const MENU_CONFIG = [
-    { name: '行情洞察', icon: '📈', children: ['实时盘口', '资金流向', '链上异动'] },
-    { name: '实时聊天', icon: '💬', children: ['Agent聊天室', '多Agent群聊', '单Agent测试'] },
-    { name: '模式选择', icon: '🎛️', children: ['多Agent编排', '模式预设1', '模式预设2'] },
-    { name: '模式回测', icon: '⏪', children: ['历史回测', '参数对比', '回测报告'] },
-    { name: '模式生成', icon: '✨', children: ['规则生成', '提示词工坊', '策略模板'] },
-    { name: '账户状态', icon: '👤', children: ['总览状态', '持仓明细', '保证金风控'] },
-    { name: '记录日志', icon: '📋', children: ['Agent协作记录', '成交流水', '系统报错'] },
-    { name: '系统配置', icon: '⚙️', children: ['API密钥', '模型接入', '通知设置'] }
-  ];
+  const GROUP_CHAT_NAME = '集团聊天';
+  const GROUP_ROOM_ID = 'room_group_chat';
 
   const PROVIDER_PRESETS = {
     openai_compat: {
@@ -647,8 +681,7 @@
       id,
       nickname,
       role,
-      enabled: false,
-      modelStatus: 'yellow', // 'green' | 'yellow' | 'checking'
+      modelStatus: 'yellow', // 'green' | 'yellow'
       description,
       systemPrompt,
       skills,
@@ -700,29 +733,51 @@
     )
   ];
 
-  const AGENTS_STORAGE_KEY = 'AGENTS_CONFIG_MULTI_API_V1';
-  const ROOMS_STORAGE_KEY = 'AGENT_CHAT_ROOMS_V1';
+  // 初始仅保留 模式预设1 与 模式预设2
+  const DEFAULT_MODES = [
+    {
+      id: 'mode_preset_1',
+      name: '模式预设1',
+      agentIds: ['savior', 'jijing', 'zhenyingxiong']
+    },
+    {
+      id: 'mode_preset_2',
+      name: '模式预设2',
+      agentIds: ['savior', 'mengdao', 'zhongjishanguang']
+    }
+  ];
 
-  let openGroups = new Set(['实时聊天']);
+  const STORAGE_KEYS = {
+    AGENTS: 'MULTI_AGENT_V2_AGENTS',
+    MODES: 'MULTI_AGENT_V2_MODES',
+    ROOMS: 'MULTI_AGENT_V2_ROOMS'
+  };
+
+  let agentsData = loadAgents();
+  let modesData = loadModes();
+  let chatRooms = ensureRoomsSynced(loadRooms());
+
+  let openGroups = new Set(['实时聊天', '模式选择']);
   let openTabs = [PINNED_TAB];
   let activeTabKey = PINNED_TAB.key;
-  let agentsData = loadAgents();
+  let currentModeName = GROUP_CHAT_NAME;
+
   let selectedAgentId = agentsData[0].id;
+  let activeModeForConfig = modesData[0].name;
+  let checkingAgentId = null;
   let showApiKeyPlain = false;
 
-  let chatRooms = loadRooms();
-  let activeRoomId = chatRooms[0].id;
+  let activeRoomId = GROUP_ROOM_ID;
   let sendingChat = false;
 
   function loadAgents() {
     try {
-      const raw = localStorage.getItem(AGENTS_STORAGE_KEY);
+      const raw = localStorage.getItem(STORAGE_KEYS.AGENTS);
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) {
           return parsed.map(a => ({
             ...a,
-            enabled: Boolean(a.enabled),
             modelStatus: a.modelStatus === 'green' ? 'green' : 'yellow',
             skills: Array.isArray(a.skills) ? a.skills : [],
             apiConfig: {
@@ -740,51 +795,119 @@
   }
 
   function saveAgents() {
-    localStorage.setItem(AGENTS_STORAGE_KEY, JSON.stringify(agentsData));
+    localStorage.setItem(STORAGE_KEYS.AGENTS, JSON.stringify(agentsData));
   }
 
-  function createDefaultRooms() {
-    const allIds = agentsData.map(a => a.id);
-    return [
-      {
-        id: 'room_war_council',
-        name: '多Agent作战室',
-        memberIds: allIds,
-        messages: [
-          {
-            senderType: 'system',
-            senderName: '系统',
-            text: '聊天室已创建。启用 Agent 后将自动检测模型并发送报到状态。',
-            time: getNowTime()
-          }
-        ]
-      },
-      {
-        id: 'room_bull_bear',
-        name: '多空辩论室',
-        memberIds: ['jijing', 'zhenyingxiong', 'savior'].filter(id => agentsData.some(a => a.id === id)),
-        messages: []
-      }
-    ];
-  }
-
-  function loadRooms() {
+  function loadModes() {
     try {
-      const raw = localStorage.getItem(ROOMS_STORAGE_KEY);
+      const raw = localStorage.getItem(STORAGE_KEYS.MODES);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map(m => ({
+            id: m.id,
+            name: m.name,
+            agentIds: Array.isArray(m.agentIds) ? m.agentIds : []
+          }));
+        }
       }
     } catch (e) {}
-    return createDefaultRooms();
+    return JSON.parse(JSON.stringify(DEFAULT_MODES));
   }
 
-  function saveRooms() {
-    localStorage.setItem(ROOMS_STORAGE_KEY, JSON.stringify(chatRooms));
+  function saveModes() {
+    localStorage.setItem(STORAGE_KEYS.MODES, JSON.stringify(modesData));
   }
 
   function getNowTime() {
     return new Date().toTimeString().split(' ')[0];
+  }
+
+  function makeRoomForMode(mode) {
+    return {
+      id: `room_${mode.id}`,
+      name: mode.name,
+      boundModeId: mode.id,
+      isGroupChat: false,
+      messages: [
+        {
+          senderType: 'system',
+          senderName: '系统',
+          text: `模式聊天室「${mode.name}」已就绪，仅允许该模式成员协作交流，你也可随时发言。`,
+          time: getNowTime()
+        }
+      ]
+    };
+  }
+
+  function ensureRoomsSynced(existingRooms) {
+    const rooms = Array.isArray(existingRooms) ? existingRooms.slice() : [];
+    const allAgentIds = agentsData.map(a => a.id);
+
+    // 1. 首个固定为“集团聊天”
+    let groupRoom = rooms.find(r => r.isGroupChat || r.id === GROUP_ROOM_ID);
+    if (!groupRoom) {
+      groupRoom = {
+        id: GROUP_ROOM_ID,
+        name: GROUP_CHAT_NAME,
+        boundModeId: null,
+        isGroupChat: true,
+        messages: [
+          {
+            senderType: 'system',
+            senderName: '系统',
+            text: '欢迎来到「集团聊天」，所有 Agent 均可在此全局协作，你也可随时发言。',
+            time: getNowTime()
+          }
+        ]
+      };
+    } else {
+      groupRoom.id = GROUP_ROOM_ID;
+      groupRoom.name = GROUP_CHAT_NAME;
+      groupRoom.isGroupChat = true;
+      groupRoom.boundModeId = null;
+    }
+
+    // 2. 每个模式对应一个专属聊天室
+    const modeRooms = modesData.map(mode => {
+      const found = rooms.find(r => r.boundModeId === mode.id);
+      if (found) {
+        found.name = mode.name;
+        found.isGroupChat = false;
+        return found;
+      }
+      return makeRoomForMode(mode);
+    });
+
+    const synced = [groupRoom, ...modeRooms];
+    return synced;
+  }
+
+  function loadRooms() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.ROOMS);
+      if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    return [];
+  }
+
+  function saveRooms() {
+    localStorage.setItem(STORAGE_KEYS.ROOMS, JSON.stringify(chatRooms));
+  }
+
+  function getMenuConfig() {
+    const modeNames = modesData.map(m => m.name);
+    const chatRoomNames = chatRooms.map(r => r.name);
+    return [
+      { name: '行情洞察', icon: '📈', children: ['实时盘口', '资金流向', '链上异动'] },
+      { name: '实时聊天', icon: '💬', children: chatRoomNames },
+      { name: '模式选择', icon: '🎛️', children: modeNames },
+      { name: '模式回测', icon: '⏪', children: ['历史回测', '参数对比', '回测报告'] },
+      { name: '模式生成', icon: '✨', children: ['创建新模式'] },
+      { name: '账户状态', icon: '👤', children: ['总览状态', '持仓明细', '保证金风控'] },
+      { name: '记录日志', icon: '📋', children: ['Agent协作记录', '成交流水', '系统报错'] },
+      { name: '系统配置', icon: '⚙️', children: ['API密钥', '模型接入', '通知设置'] }
+    ];
   }
 
   function escapeHtml(str) {
@@ -799,23 +922,45 @@
     return agentsData.find(a => a.id === selectedAgentId) || agentsData[0];
   }
 
+  function getModeByName(name) {
+    return modesData.find(m => m.name === name) || modesData[0];
+  }
+
   function getActiveRoom() {
     return chatRooms.find(r => r.id === activeRoomId) || chatRooms[0];
   }
 
-  function pushAgentStatusToRooms(agent, statusText) {
-    const targetRooms = chatRooms.filter(r => r.memberIds.includes(agent.id));
-    const roomsToNotify = targetRooms.length > 0 ? targetRooms : [chatRooms[0]];
-    const now = getNowTime();
-    roomsToNotify.forEach(room => {
-      room.messages.push({
-        senderType: 'agent',
-        senderName: agent.nickname,
-        role: agent.role,
-        modelId: agent.apiConfig.modelId,
-        text: statusText,
-        time: now
-      });
+  function getRoomByModeId(modeId) {
+    return chatRooms.find(r => r.boundModeId === modeId) || chatRooms[0];
+  }
+
+  function getAllowedAgentsForRoom(room) {
+    if (!room || room.isGroupChat) {
+      return agentsData;
+    }
+    const mode = modesData.find(m => m.id === room.boundModeId);
+    if (!mode) return [];
+    return agentsData.filter(a => mode.agentIds.includes(a.id));
+  }
+
+  function setHeaderModeLabel(label) {
+    currentModeName = label;
+    const badge = document.getElementById('modeBadge');
+    if (badge) {
+      badge.innerHTML = `<span class="dot"></span>${escapeHtml(label)}`;
+    }
+  }
+
+  function pushAgentStatusToModeRoom(agent, modeId, statusText) {
+    const targetRoom = getRoomByModeId(modeId);
+    if (!targetRoom) return;
+    targetRoom.messages.push({
+      senderType: 'agent',
+      senderName: agent.nickname,
+      role: agent.role,
+      modelId: agent.apiConfig.modelId,
+      text: statusText,
+      time: getNowTime()
     });
     saveRooms();
   }
@@ -823,14 +968,15 @@
   function renderSidebar() {
     const ul = document.getElementById('sidebarMenu');
     const activeTab = openTabs.find(t => t.key === activeTabKey);
+    const menuConfig = getMenuConfig();
 
-    ul.innerHTML = MENU_CONFIG.map(group => {
+    ul.innerHTML = menuConfig.map(group => {
       const isOpen = openGroups.has(group.name);
       const childrenHtml = group.children.map(sub => {
         const key = `${group.name}::${sub}`;
         const isActive = activeTab && activeTab.key === key;
         return `
-          <li class="sub-menu-item ${isActive ? 'active' : ''}" onclick="onSelectSubItem('${group.name}', '${sub}')">
+          <li class="sub-menu-item ${isActive ? 'active' : ''}" onclick="onSelectSubItem('${group.name}', '${sub.replace(/'/g, "\\'")}')">
             ${escapeHtml(sub)}
           </li>
         `;
@@ -856,13 +1002,8 @@
     renderSidebar();
   }
 
-  function onSelectSubItem(category, subItem) {
+  function openOrFocusTab(category, subItem) {
     const key = `${category}::${subItem}`;
-    const modeBadge = document.getElementById('modeBadge');
-    if (category === '模式选择' && subItem.startsWith('模式预设')) {
-      modeBadge.innerHTML = `<span class="dot"></span>${subItem === '模式预设1' ? '开启模式1' : '开启模式2'}`;
-    }
-
     if (!openTabs.some(t => t.key === key)) {
       openTabs.push({
         key,
@@ -873,6 +1014,25 @@
       });
     }
     activeTabKey = key;
+  }
+
+  function onSelectSubItem(category, subItem) {
+    openOrFocusTab(category, subItem);
+
+    if (category === '模式选择') {
+      const mode = getModeByName(subItem);
+      activeModeForConfig = mode.name;
+      setHeaderModeLabel(mode.name);
+      const boundRoom = getRoomByModeId(mode.id);
+      if (boundRoom) activeRoomId = boundRoom.id;
+    } else if (category === '实时聊天') {
+      const room = chatRooms.find(r => r.name === subItem);
+      if (room) {
+        activeRoomId = room.id;
+        setHeaderModeLabel(room.name);
+      }
+    }
+
     renderSidebar();
     renderTopTabs();
     renderWorkspace();
@@ -896,6 +1056,17 @@
 
   function onSwitchTab(key) {
     activeTabKey = key;
+    const tab = openTabs.find(t => t.key === key);
+    if (tab && tab.category === '实时聊天') {
+      const room = chatRooms.find(r => r.name === tab.subItem);
+      if (room) {
+        activeRoomId = room.id;
+        setHeaderModeLabel(room.name);
+      }
+    } else if (tab && tab.category === '模式选择') {
+      activeModeForConfig = tab.subItem;
+      setHeaderModeLabel(tab.subItem);
+    }
     renderSidebar();
     renderTopTabs();
     renderWorkspace();
@@ -918,27 +1089,25 @@
 
   function renderChatWorkspace() {
     const room = getActiveRoom();
+    const allowedAgents = getAllowedAgentsForRoom(room);
+
     const roomListHtml = chatRooms.map(r => `
       <div class="room-item ${r.id === room.id ? 'active' : ''}" onclick="selectRoom('${r.id}')">
         <div style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
           <div style="font-size:13px;font-weight:bold;color:#f1f5f9;">${escapeHtml(r.name)}</div>
-          <div style="font-size:11px;color:#64748b;">${r.memberIds.length} 位 Agent · ${r.messages.length} 条记录</div>
+          <div style="font-size:11px;color:#64748b;">
+            ${r.isGroupChat ? '全局集团聊天' : '专属模式聊天'} · ${r.messages.length} 条记录
+          </div>
         </div>
-        ${chatRooms.length > 1 ? `<span class="close-x" title="删除聊天室" onclick="deleteRoom(event, '${r.id}')">×</span>` : ''}
       </div>
     `).join('');
 
-    const memberTogglesHtml = agentsData.map(a => {
-      const selected = room.memberIds.includes(a.id);
-      return `
-        <span class="member-toggle ${selected ? 'selected' : ''}" onclick="toggleRoomMember('${a.id}')">
-          ${selected ? '✓ ' : '+ '}${escapeHtml(a.nickname)}
-        </span>
-      `;
-    }).join('');
+    const allowedTagsHtml = allowedAgents.length > 0
+      ? allowedAgents.map(a => `<span class="scope-tag">${escapeHtml(a.nickname)}</span>`).join('')
+      : `<span style="color:#f59e0b;">当前模式暂未绑定 Agent，可在“模式选择”中勾选</span>`;
 
     const messagesHtml = room.messages.length === 0
-      ? `<div style="color:#64748b;font-size:12px;text-align:center;padding:24px;">暂无消息，输入内容并点击“发送测试”或“模拟回复”开始测试。</div>`
+      ? `<div style="color:#64748b;font-size:12px;text-align:center;padding:24px;">暂无消息，输入内容并点击“发送消息”或“模拟回复”开始交流。</div>`
       : room.messages.map(m => {
           if (m.senderType === 'user') {
             return `
@@ -967,9 +1136,8 @@
       <div class="chat-layout">
         <div class="room-sidebar">
           <div class="section-title"><span>聊天室列表</span></div>
-          <div style="display:flex;gap:6px;">
-            <input class="form-input" id="newRoomNameInput" style="flex:1;padding:5px 8px;font-size:12px;" placeholder="新聊天室名称" onkeydown="if(event.key==='Enter') createRoom()">
-            <button class="btn btn-primary" style="padding:5px 10px;" onclick="createRoom()">新建</button>
+          <div style="font-size:11px;color:#64748b;line-height:1.4;">
+            首个为「集团聊天」，其余随模式自动生成。
           </div>
           <div style="display:flex;flex-direction:column;gap:6px;">
             ${roomListHtml}
@@ -979,24 +1147,21 @@
         <div class="chat-main">
           <div class="chat-header">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
-              <div style="display:flex;align-items:center;gap:8px;">
-                <strong style="font-size:15px;color:#f8fafc;">${escapeHtml(room.name)}</strong>
-                <button class="btn" style="padding:3px 8px;" onclick="renameRoom()">重命名</button>
-              </div>
+              <strong style="font-size:15px;color:#f8fafc;">${escapeHtml(room.name)}</strong>
               <button class="btn" style="padding:3px 8px;" onclick="clearRoomMessages()">清空记录</button>
             </div>
-            <div class="member-selector">
-              <span style="font-size:12px;color:#94a3b8;">参与 Agent：</span>
-              ${memberTogglesHtml}
+            <div class="room-scope-hint">
+              <span>当前频道参与成员（仅限本频道）：</span>
+              ${allowedTagsHtml}
             </div>
           </div>
 
           <div class="chat-messages" id="chatMessagesBox">${messagesHtml}</div>
 
           <div class="chat-input-box">
-            <input class="form-input" id="chatInput" style="flex:1;min-width:180px;" placeholder="输入测试指令，例如：分析当前 BTC 波动与风险..." onkeydown="if(event.key==='Enter' && !sendingChat) sendChatMessage(false)">
+            <input class="form-input" id="chatInput" style="flex:1;min-width:180px;" placeholder="在「${escapeHtml(room.name)}」中发言或向本频道 Agent 发送指令..." onkeydown="if(event.key==='Enter' && !sendingChat) sendChatMessage(false)">
             <button class="btn btn-primary" onclick="sendChatMessage(false)" ${sendingChat ? 'disabled' : ''}>
-              ${sendingChat ? '输出中...' : '发送测试'}
+              ${sendingChat ? '输出中...' : '发送消息'}
             </button>
             <button class="btn" onclick="sendChatMessage(true)" ${sendingChat ? 'disabled' : ''}>
               模拟回复
@@ -1007,62 +1172,22 @@
     `;
   }
 
-  function createRoom() {
-    const input = document.getElementById('newRoomNameInput');
-    const name = (input && input.value.trim()) || `聊天室 ${chatRooms.length + 1}`;
-    const newRoom = {
-      id: 'room_' + Date.now(),
-      name,
-      memberIds: agentsData.slice(0, 2).map(a => a.id),
-      messages: [
-        { senderType: 'system', senderName: '系统', text: `已创建聊天室「${name}」`, time: getNowTime() }
-      ]
-    };
-    chatRooms.push(newRoom);
-    activeRoomId = newRoom.id;
-    saveRooms();
-    renderWorkspace();
-  }
-
   function selectRoom(id) {
     activeRoomId = id;
+    const room = getActiveRoom();
+    if (room) {
+      setHeaderModeLabel(room.name);
+      openOrFocusTab('实时聊天', room.name);
+    }
+    renderSidebar();
+    renderTopTabs();
     renderWorkspace();
     scrollChatBottom();
-  }
-
-  function deleteRoom(event, id) {
-    event.stopPropagation();
-    if (chatRooms.length <= 1) return;
-    chatRooms = chatRooms.filter(r => r.id !== id);
-    if (activeRoomId === id) activeRoomId = chatRooms[0].id;
-    saveRooms();
-    renderWorkspace();
-  }
-
-  function renameRoom() {
-    const room = getActiveRoom();
-    const nextName = prompt('输入新的聊天室名称：', room.name);
-    if (nextName && nextName.trim()) {
-      room.name = nextName.trim();
-      saveRooms();
-      renderWorkspace();
-    }
   }
 
   function clearRoomMessages() {
     const room = getActiveRoom();
     room.messages = [];
-    saveRooms();
-    renderWorkspace();
-  }
-
-  function toggleRoomMember(agentId) {
-    const room = getActiveRoom();
-    if (room.memberIds.includes(agentId)) {
-      room.memberIds = room.memberIds.filter(id => id !== agentId);
-    } else {
-      room.memberIds.push(agentId);
-    }
     saveRooms();
     renderWorkspace();
   }
@@ -1163,11 +1288,7 @@
     const inputEl = document.getElementById('chatInput');
     const text = (inputEl && inputEl.value.trim()) || '请结合你的角色与技能，对当前行情给出一条简短评估。';
     const room = getActiveRoom();
-
-    if (room.memberIds.length === 0) {
-      alert('请先在上方勾选至少 1 位参与聊天的 Agent');
-      return;
-    }
+    const members = getAllowedAgentsForRoom(room);
 
     room.messages.push({
       senderType: 'user',
@@ -1180,10 +1301,22 @@
     renderWorkspace();
     scrollChatBottom();
 
+    if (members.length === 0) {
+      room.messages.push({
+        senderType: 'system',
+        senderName: '系统',
+        text: '当前聊天室未绑定任何 Agent，仅记录你的发言。',
+        time: getNowTime()
+      });
+      saveRooms();
+      renderWorkspace();
+      scrollChatBottom();
+      return;
+    }
+
     sendingChat = true;
     renderWorkspace();
 
-    const members = agentsData.filter(a => room.memberIds.includes(a.id));
     for (const agent of members) {
       if (isMock) {
         const skillStr = agent.skills.length ? `（挂载技能：${agent.skills.join('、')}）` : '';
@@ -1192,12 +1325,12 @@
           senderName: `${agent.nickname} [模拟]`,
           role: agent.role,
           modelId: agent.apiConfig.modelId,
-          text: `收到指令「${text}」${skillStr}。当前以【${agent.role}】视角测试输出：${agent.description || '已准备就绪，等待真实 API 接入。'}`,
+          text: `在「${room.name}」收到消息「${text}」${skillStr}。以【${agent.role}】视角回复：${agent.description || '已就绪。'}`,
           time: getNowTime()
         });
       } else {
         try {
-          const reply = await callSingleAgent(agent, text);
+          const reply = await callSingleAgent(agent, `[频道：${room.name}] ${text}`);
           agent.modelStatus = 'green';
           saveAgents();
           room.messages.push({
@@ -1231,6 +1364,96 @@
     scrollChatBottom();
   }
 
+  function renderModeGeneratorWorkspace() {
+    const modeChips = modesData.map(m => {
+      const names = agentsData.filter(a => m.agentIds.includes(a.id)).map(a => a.nickname).join('、') || '无';
+      return `<span class="mode-pill-item"><strong>${escapeHtml(m.name)}</strong>（${escapeHtml(names)}）</span>`;
+    }).join('');
+
+    const agentCheckboxes = agentsData.map(a => `
+      <label class="member-toggle selected" style="cursor:pointer;">
+        <input type="checkbox" class="new-mode-agent-cb" value="${a.id}" checked style="margin-right:4px;">
+        ${escapeHtml(a.nickname)}
+      </label>
+    `).join('');
+
+    return `
+      <div class="generator-card">
+        <div class="section-title">
+          <span style="font-size:15px;">✨ 模式生成（同时生成新模式与对应聊天室）</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">现有模式与对应聊天室</label>
+          <div class="mode-pill-list">${modeChips}</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">新模式名称（将同步创建同名聊天室）</label>
+          <input class="form-input" id="newModeNameInput" placeholder="例如：模式预设3 / 高波突破模式">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">选择参与该模式的 Agent（仅允许在该模式聊天室发言）</label>
+          <div class="member-selector">${agentCheckboxes}</div>
+        </div>
+
+        <div>
+          <button class="btn btn-primary" onclick="createNewModeAndRoom()">生成模式并创建聊天室</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function createNewModeAndRoom() {
+    const nameInput = document.getElementById('newModeNameInput');
+    const rawName = (nameInput && nameInput.value.trim()) || `模式预设${modesData.length + 1}`;
+
+    if (rawName === GROUP_CHAT_NAME) {
+      alert('不能使用“集团聊天”作为子模式名称');
+      return;
+    }
+    if (modesData.some(m => m.name === rawName)) {
+      alert(`模式「${rawName}」已存在`);
+      return;
+    }
+
+    const checkedIds = Array.from(document.querySelectorAll('.new-mode-agent-cb:checked')).map(el => el.value);
+    const newMode = {
+      id: `mode_${Date.now()}`,
+      name: rawName,
+      agentIds: checkedIds
+    };
+
+    modesData.push(newMode);
+    saveModes();
+
+    const newRoom = makeRoomForMode(newMode);
+    chatRooms = ensureRoomsSynced([...chatRooms, newRoom]);
+    saveRooms();
+
+    activeModeForConfig = newMode.name;
+    activeRoomId = newRoom.id;
+    setHeaderModeLabel(newMode.name);
+
+    openOrFocusTab('模式选择', newMode.name);
+    renderSidebar();
+    renderTopTabs();
+    renderWorkspace();
+  }
+
+  function toggleAgentInActiveMode(agentId) {
+    const mode = getModeByName(activeModeForConfig);
+    if (!mode) return;
+    if (mode.agentIds.includes(agentId)) {
+      mode.agentIds = mode.agentIds.filter(id => id !== agentId);
+    } else {
+      mode.agentIds.push(agentId);
+    }
+    saveModes();
+    renderWorkspace();
+  }
+
   function renderWorkspace() {
     const ws = document.getElementById('workspace');
     const tab = openTabs.find(t => t.key === activeTabKey) || PINNED_TAB;
@@ -1241,29 +1464,42 @@
       return;
     }
 
+    if (tab.category === '模式生成') {
+      ws.innerHTML = renderModeGeneratorWorkspace();
+      return;
+    }
+
     if (tab.category === '模式选择') {
+      const currentMode = getModeByName(tab.subItem || activeModeForConfig);
+      activeModeForConfig = currentMode.name;
+
       const agent = getSelectedAgent();
       const api = agent.apiConfig;
       const preset = PROVIDER_PRESETS[api.provider] || PROVIDER_PRESETS.openai_compat;
 
-      const cards = agentsData.map(a => `
-        <div class="agent-card ${a.id === agent.id ? 'active' : ''}" onclick="selectAgent('${a.id}')">
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
-            <span style="font-size:13px;font-weight:bold;color:#f8fafc;">${escapeHtml(a.nickname)}</span>
-            <span class="status-lamp ${a.modelStatus === 'green' ? 'green' : 'yellow'}" title="${a.modelStatus === 'green' ? '模型对接正常' : '模型异常或未启用'}"></span>
+      const cards = agentsData.map(a => {
+        const inMode = currentMode.agentIds.includes(a.id);
+        return `
+          <div class="agent-card ${a.id === agent.id ? 'active' : ''}" onclick="selectAgent('${a.id}')">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
+              <span style="font-size:13px;font-weight:bold;color:#f8fafc;">${escapeHtml(a.nickname)}</span>
+              <span class="status-lamp ${a.modelStatus === 'green' ? 'green' : 'yellow'}" title="${a.modelStatus === 'green' ? '模型对接正常' : '模型异常或未检测'}"></span>
+            </div>
+            <div style="font-size:11px;color:#38bdf8;margin-top:2px;">${escapeHtml(a.role)}</div>
+            <div style="font-size:11px;color:${inMode ? '#34d399' : '#64748b'};margin-top:2px;">
+              ${inMode ? '✓ 已编入本模式' : '未编入本模式'} · ${escapeHtml(a.apiConfig.modelId || '未填模型ID')}
+            </div>
           </div>
-          <div style="font-size:11px;color:#38bdf8;margin-top:2px;">${escapeHtml(a.role)}</div>
-          <div style="font-size:11px;color:#64748b;margin-top:2px;">${escapeHtml(a.apiConfig.modelId || '未填模型ID')}</div>
-        </div>
-      `).join('');
+        `;
+      }).join('');
 
       const skillChips = agent.skills.map((s, i) => `
         <span class="skill-chip" title="点击移除" onclick="removeSkill(${i})">⚡ ${escapeHtml(s)} ×</span>
       `).join('');
 
-      const lampClass = agent.modelStatus === 'green'
-        ? 'green'
-        : (agent.modelStatus === 'checking' ? 'checking' : 'yellow');
+      const isSpinning = checkingAgentId === agent.id;
+      const lampClass = agent.modelStatus === 'green' ? 'green' : 'yellow';
+      const agentInCurrentMode = currentMode.agentIds.includes(agent.id);
 
       ws.innerHTML = `
         <div class="agent-layout">
@@ -1276,10 +1512,10 @@
           </div>
 
           <div class="agent-config-panel">
-            <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #1e2d3d;padding-bottom:8px;">
-              <strong style="font-size:15px;color:#f8fafc;">${escapeHtml(agent.nickname)} · 独立配置与模型接口</strong>
-              <label style="font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;">
-                <input type="checkbox" ${agent.enabled ? 'checked' : ''} onchange="onToggleAgentEnabled(this.checked)"> 启用
+            <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #1e2d3d;padding-bottom:8px;gap:8px;flex-wrap:wrap;">
+              <strong style="font-size:15px;color:#f8fafc;">${escapeHtml(agent.nickname)} · ${escapeHtml(currentMode.name)} 配置</strong>
+              <label style="font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;color:#a7f3d0;">
+                <input type="checkbox" ${agentInCurrentMode ? 'checked' : ''} onchange="toggleAgentInActiveMode('${agent.id}')"> 归入「${escapeHtml(currentMode.name)}」聊天室
               </label>
             </div>
 
@@ -1302,7 +1538,12 @@
               <div class="section-title">
                 <span>🔌 大模型接口接入设置（当前 Agent 独享）</span>
                 <span class="model-status-indicator">
-                  <span>状态</span>
+                  <button
+                    class="refresh-circle-btn ${isSpinning ? 'spinning' : ''}"
+                    title="刷新模型状态并发送测试消息至「${escapeHtml(currentMode.name)}」聊天室"
+                    onclick="refreshAgentModelStatus('${currentMode.id}')"
+                    ${isSpinning ? 'disabled' : ''}
+                  >↻</button>
                   <span class="status-lamp ${lampClass}"></span>
                 </span>
               </div>
@@ -1396,29 +1637,20 @@
     }
   }
 
-  async function onToggleAgentEnabled(isChecked) {
+  async function refreshAgentModelStatus(modeId) {
     const agent = getSelectedAgent();
-    agent.enabled = isChecked;
-
-    if (!isChecked) {
-      agent.modelStatus = 'yellow';
-      saveAgents();
-      renderWorkspace();
-      return;
-    }
-
-    agent.modelStatus = 'checking';
-    saveAgents();
+    checkingAgentId = agent.id;
     renderWorkspace();
 
     try {
-      await callSingleAgent(agent, '在线连通性自检，请仅回复：OK', 16);
+      await callSingleAgent(agent, '在线状态检测，请仅回复：OK', 16);
       agent.modelStatus = 'green';
-      pushAgentStatusToRooms(agent, `${agent.nickname}—归位`);
+      pushAgentStatusToModeRoom(agent, modeId, `${agent.nickname}—归位`);
     } catch (err) {
       agent.modelStatus = 'yellow';
-      pushAgentStatusToRooms(agent, `${agent.nickname}—迷失`);
+      pushAgentStatusToModeRoom(agent, modeId, `${agent.nickname}—迷失`);
     } finally {
+      checkingAgentId = null;
       saveAgents();
       renderWorkspace();
     }
