@@ -334,7 +334,7 @@
     gap: 8px;
   }
 
-  /* 圆形刷新箭头 + 状态灯 */
+  /* 圆形双箭头刷新按钮 + 状态灯 */
   .model-status-indicator {
     display: inline-flex;
     align-items: center;
@@ -344,19 +344,18 @@
     color: #cbd5e1;
   }
   .refresh-circle-btn {
-    width: 24px;
-    height: 24px;
+    width: 26px;
+    height: 26px;
     border-radius: 50%;
     border: 1px solid #2b4563;
     background-color: #132236;
     color: #7dd3fc;
-    font-size: 14px;
-    line-height: 1;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     transition: 0.15s;
+    padding: 0;
   }
   .refresh-circle-btn:hover:not(:disabled) {
     border-color: #38bdf8;
@@ -630,6 +629,10 @@
   </div>
 
 <script>
+  window.addEventListener('error', function (e) {
+    console.warn('页面捕获异常:', e.message || e);
+  });
+
   const PINNED_TAB = {
     key: '账户状态::总览状态',
     category: '账户状态',
@@ -733,24 +736,25 @@
     )
   ];
 
-  // 初始仅保留 模式预设1 与 模式预设2
+  // 默认模式预设1、模式预设2均默认纳入全部 Agent，可按需勾选增减
+  const ALL_DEFAULT_IDS = DEFAULT_AGENTS.map(a => a.id);
   const DEFAULT_MODES = [
     {
       id: 'mode_preset_1',
       name: '模式预设1',
-      agentIds: ['savior', 'jijing', 'zhenyingxiong']
+      agentIds: [...ALL_DEFAULT_IDS]
     },
     {
       id: 'mode_preset_2',
       name: '模式预设2',
-      agentIds: ['savior', 'mengdao', 'zhongjishanguang']
+      agentIds: [...ALL_DEFAULT_IDS]
     }
   ];
 
   const STORAGE_KEYS = {
-    AGENTS: 'MULTI_AGENT_V2_AGENTS',
-    MODES: 'MULTI_AGENT_V2_MODES',
-    ROOMS: 'MULTI_AGENT_V2_ROOMS'
+    AGENTS: 'MULTI_AGENT_V3_AGENTS',
+    MODES: 'MULTI_AGENT_V3_MODES',
+    ROOMS: 'MULTI_AGENT_V3_ROOMS'
   };
 
   let agentsData = loadAgents();
@@ -795,7 +799,9 @@
   }
 
   function saveAgents() {
-    localStorage.setItem(STORAGE_KEYS.AGENTS, JSON.stringify(agentsData));
+    try {
+      localStorage.setItem(STORAGE_KEYS.AGENTS, JSON.stringify(agentsData));
+    } catch (e) {}
   }
 
   function loadModes() {
@@ -816,7 +822,9 @@
   }
 
   function saveModes() {
-    localStorage.setItem(STORAGE_KEYS.MODES, JSON.stringify(modesData));
+    try {
+      localStorage.setItem(STORAGE_KEYS.MODES, JSON.stringify(modesData));
+    } catch (e) {}
   }
 
   function getNowTime() {
@@ -842,9 +850,7 @@
 
   function ensureRoomsSynced(existingRooms) {
     const rooms = Array.isArray(existingRooms) ? existingRooms.slice() : [];
-    const allAgentIds = agentsData.map(a => a.id);
 
-    // 1. 首个固定为“集团聊天”
     let groupRoom = rooms.find(r => r.isGroupChat || r.id === GROUP_ROOM_ID);
     if (!groupRoom) {
       groupRoom = {
@@ -868,7 +874,6 @@
       groupRoom.boundModeId = null;
     }
 
-    // 2. 每个模式对应一个专属聊天室
     const modeRooms = modesData.map(mode => {
       const found = rooms.find(r => r.boundModeId === mode.id);
       if (found) {
@@ -879,8 +884,7 @@
       return makeRoomForMode(mode);
     });
 
-    const synced = [groupRoom, ...modeRooms];
-    return synced;
+    return [groupRoom, ...modeRooms];
   }
 
   function loadRooms() {
@@ -892,7 +896,9 @@
   }
 
   function saveRooms() {
-    localStorage.setItem(STORAGE_KEYS.ROOMS, JSON.stringify(chatRooms));
+    try {
+      localStorage.setItem(STORAGE_KEYS.ROOMS, JSON.stringify(chatRooms));
+    } catch (e) {}
   }
 
   function getMenuConfig() {
@@ -949,20 +955,6 @@
     if (badge) {
       badge.innerHTML = `<span class="dot"></span>${escapeHtml(label)}`;
     }
-  }
-
-  function pushAgentStatusToModeRoom(agent, modeId, statusText) {
-    const targetRoom = getRoomByModeId(modeId);
-    if (!targetRoom) return;
-    targetRoom.messages.push({
-      senderType: 'agent',
-      senderName: agent.nickname,
-      role: agent.role,
-      modelId: agent.apiConfig.modelId,
-      text: statusText,
-      time: getNowTime()
-    });
-    saveRooms();
   }
 
   function renderSidebar() {
@@ -1103,7 +1095,11 @@
     `).join('');
 
     const allowedTagsHtml = allowedAgents.length > 0
-      ? allowedAgents.map(a => `<span class="scope-tag">${escapeHtml(a.nickname)}</span>`).join('')
+      ? allowedAgents.map(a => `
+          <span class="scope-tag">
+            <span class="status-lamp ${a.modelStatus === 'green' ? 'green' : 'yellow'}" style="width:7px;height:7px;margin-right:4px;"></span>${escapeHtml(a.nickname)}
+          </span>
+        `).join('')
       : `<span style="color:#f59e0b;">当前模式暂未绑定 Agent，可在“模式选择”中勾选</span>`;
 
     const messagesHtml = room.messages.length === 0
@@ -1317,7 +1313,8 @@
     sendingChat = true;
     renderWorkspace();
 
-    for (const agent of members) {
+    for (let i = 0; i < members.length; i++) {
+      const agent = members[i];
       if (isMock) {
         const skillStr = agent.skills.length ? `（挂载技能：${agent.skills.join('、')}）` : '';
         room.messages.push({
@@ -1357,6 +1354,9 @@
       saveRooms();
       renderWorkspace();
       scrollChatBottom();
+      if (!isMock && i < members.length - 1) {
+        await new Promise(r => setTimeout(r, 250));
+      }
     }
 
     sendingChat = false;
@@ -1483,11 +1483,11 @@
           <div class="agent-card ${a.id === agent.id ? 'active' : ''}" onclick="selectAgent('${a.id}')">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
               <span style="font-size:13px;font-weight:bold;color:#f8fafc;">${escapeHtml(a.nickname)}</span>
-              <span class="status-lamp ${a.modelStatus === 'green' ? 'green' : 'yellow'}" title="${a.modelStatus === 'green' ? '模型对接正常' : '模型异常或未检测'}"></span>
+              <span class="status-lamp ${a.modelStatus === 'green' ? 'green' : 'yellow'}" title="${a.modelStatus === 'green' ? '模型正常' : '模型异常或未检测'}"></span>
             </div>
             <div style="font-size:11px;color:#38bdf8;margin-top:2px;">${escapeHtml(a.role)}</div>
             <div style="font-size:11px;color:${inMode ? '#34d399' : '#64748b'};margin-top:2px;">
-              ${inMode ? '✓ 已编入本模式' : '未编入本模式'} · ${escapeHtml(a.apiConfig.modelId || '未填模型ID')}
+              ${inMode ? '✓ 已参与本模式' : '未参与本模式'} · ${escapeHtml(a.apiConfig.modelId || '未填模型ID')}
             </div>
           </div>
         `;
@@ -1515,7 +1515,7 @@
             <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #1e2d3d;padding-bottom:8px;gap:8px;flex-wrap:wrap;">
               <strong style="font-size:15px;color:#f8fafc;">${escapeHtml(agent.nickname)} · ${escapeHtml(currentMode.name)} 配置</strong>
               <label style="font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;color:#a7f3d0;">
-                <input type="checkbox" ${agentInCurrentMode ? 'checked' : ''} onchange="toggleAgentInActiveMode('${agent.id}')"> 归入「${escapeHtml(currentMode.name)}」聊天室
+                <input type="checkbox" ${agentInCurrentMode ? 'checked' : ''} onchange="toggleAgentInActiveMode('${agent.id}')"> 参与「${escapeHtml(currentMode.name)}」
               </label>
             </div>
 
@@ -1540,10 +1540,17 @@
                 <span class="model-status-indicator">
                   <button
                     class="refresh-circle-btn ${isSpinning ? 'spinning' : ''}"
-                    title="刷新模型状态并发送测试消息至「${escapeHtml(currentMode.name)}」聊天室"
-                    onclick="refreshAgentModelStatus('${currentMode.id}')"
+                    title="刷新模型状态（绿灯正常 / 黄灯异常）"
+                    onclick="refreshAgentModelStatus()"
                     ${isSpinning ? 'disabled' : ''}
-                  >↻</button>
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M17 2l4 4-4 4"></path>
+                      <path d="M3 11v-1a4 4 0 0 1 4-4h14"></path>
+                      <path d="M7 22l-4-4 4-4"></path>
+                      <path d="M21 13v1a4 4 0 0 1-4 4H3"></path>
+                    </svg>
+                  </button>
                   <span class="status-lamp ${lampClass}"></span>
                 </span>
               </div>
@@ -1637,7 +1644,7 @@
     }
   }
 
-  async function refreshAgentModelStatus(modeId) {
+  async function refreshAgentModelStatus() {
     const agent = getSelectedAgent();
     checkingAgentId = agent.id;
     renderWorkspace();
@@ -1645,10 +1652,8 @@
     try {
       await callSingleAgent(agent, '在线状态检测，请仅回复：OK', 16);
       agent.modelStatus = 'green';
-      pushAgentStatusToModeRoom(agent, modeId, `${agent.nickname}—归位`);
     } catch (err) {
       agent.modelStatus = 'yellow';
-      pushAgentStatusToModeRoom(agent, modeId, `${agent.nickname}—迷失`);
     } finally {
       checkingAgentId = null;
       saveAgents();
@@ -1714,21 +1719,26 @@
       []
     );
     agentsData.push(newAgent);
+    modesData.forEach(m => m.agentIds.push(newAgent.id));
+    saveModes();
     selectedAgentId = newAgent.id;
     saveAgents();
     renderWorkspace();
   }
 
   function updateClock() {
-    document.getElementById('clock').innerText = getNowTime();
+    const clockEl = document.getElementById('clock');
+    if (clockEl) clockEl.innerText = getNowTime();
   }
   setInterval(updateClock, 1000);
   updateClock();
 
   const playBtn = document.getElementById('playBtn');
-  playBtn.addEventListener('click', () => {
-    playBtn.innerText = playBtn.innerText === '▶' ? '❚❚' : '▶';
-  });
+  if (playBtn) {
+    playBtn.addEventListener('click', () => {
+      playBtn.innerText = playBtn.innerText === '▶' ? '❚❚' : '▶';
+    });
+  }
 
   renderSidebar();
   renderTopTabs();
